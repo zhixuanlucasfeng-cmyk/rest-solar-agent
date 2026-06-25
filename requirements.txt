@@ -4,7 +4,9 @@ uvicorn[standard]>=0.29.0
 python-dotenv>=1.0.0
 openai>=1.30.0
 chromadb>=0.5.0
-sentence-transformers>=3.0.0
+sentence-transformers>=2.2.0,<3.0
+numpy<2.0
+scipy<1.14
 langdetect>=1.0.9
 sqlalchemy[asyncio]>=2.0.0
 aiosqlite>=0.20.0
