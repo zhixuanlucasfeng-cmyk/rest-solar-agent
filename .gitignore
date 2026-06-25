@@ -1,0 +1,9 @@
+.venv/
+.env
+__pycache__/
+*.pyc
+data/chroma_db/
+data/rest_solar.db
+.pytest_cache/
+*.egg-info/
+dist/
