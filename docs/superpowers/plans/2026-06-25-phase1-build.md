@@ -1375,10 +1375,13 @@ git commit -m "feat: CurrencyTool CNY<->XAF with static fallback + BaseTool ABC"
 
 ---
 
-## Task 9: Orchestrator — wires the full pipeline
+## Task 9: Agent Squad orchestrator (3 specialized agents)
+
+**Overview:** Replace the hand-rolled pipeline with [Agent Squad](https://github.com/awslabs/agent-squad) (v1.0.2, the official successor to `multi-agent-orchestrator`). Agent Squad classifies incoming intent and routes to a specialist agent. Three agents handle the three domains: product FAQs (RAG-grounded), currency conversion (CurrencyTool), and general fallback. The public `run()` interface is unchanged so Tasks 10-12 need no edits.
 
 **Files:**
-- Create: `app/agent/orchestrator.py`
+- Create: `app/agent/squad.py` — builds and caches the AgentSquad singleton
+- Create: `app/agent/orchestrator.py` — thin `run()` wrapper calling squad + SQLite persist
 - Create: `tests/test_orchestrator.py`
 
 **Interfaces:**
@@ -1387,9 +1390,9 @@ git commit -m "feat: CurrencyTool CNY<->XAF with static fallback + BaseTool ABC"
   - `get_matching_rules(text, db) -> list[str]` from `app.agent.rule_engine`
   - `embed(text: str) -> list[float]` from `app.rag.embedder`
   - `query(embedding, n_results) -> list[dict]` from `app.rag.retriever`
-  - `chat_complete(messages, tools) -> ChatCompletionMessage` from `app.llm.client`
-  - `TOOLS, TOOL_MAP` from `app.tools.currency`
+  - `CurrencyTool` from `app.tools.currency`
   - `Conversation, Message` from `app.db.models`
+  - `AgentSquad, OpenAIClassifier, OpenAIAgent` from `agent_squad`
 - Produces:
   - `async run(message: str, session_id: str, db: AsyncSession) -> dict`
     - Returns: `{"reply": str, "language": "en"|"fr"}`
