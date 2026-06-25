@@ -416,9 +416,13 @@ The `language` metadata is detected per-chunk with `langdetect` so EN and FR doc
 
 ---
 
-## 18. Open Questions
+## 18. Final Decisions (all open questions resolved 2026-06-25)
 
-1. **Python version:** 3.11 or 3.12? (both work; 3.11 is slightly more stable for ML packages today)
-2. **DB migrations:** Use Alembic (proper migration tool, more to learn) or just `SQLAlchemy.create_all()` for Phase 1? Recommendation: `create_all()` for Phase 1, add Alembic in Phase 2.
-3. **Embedding model size:** `paraphrase-multilingual-MiniLM-L12-v2` (~420 MB, fast, good EN+FR) vs `intfloat/multilingual-e5-base` (~1 GB, better quality). Recommend the smaller one to start.
-4. **Phase 2 background jobs:** Celery + Redis (production-grade, more to install) vs FastAPI `BackgroundTasks` (built-in, zero infra, sufficient for email notifications). Recommend BackgroundTasks for Phase 2 unless ticket volume is high.
+| Question | Decision | Reason |
+|---|---|---|
+| Python version | **3.12** | Latest stable; all ML packages support it; no reason to use older |
+| DB migrations | **`create_all()` for Phase 1**, Alembic later | One line to create tables; Alembic is for when schema changes frequently in production |
+| Embedding model | **`paraphrase-multilingual-MiniLM-L12-v2` (420 MB)** | CPU inference, small dataset (catalogue + 10 FAQs); 1 GB model's quality gain is imperceptible at this scale |
+| Phase 2 background jobs | **FastAPI `BackgroundTasks`** | No Docker/Redis overhead; built-in; switch to Celery only if ticket volume demands it |
+
+**Spec status: FINAL — all decisions locked, ready for implementation.**
