@@ -1,0 +1,40 @@
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  app:
+    build: .
+    env_file: .env
+    volumes:
+      - ./data/sqlite:/app/data
+      - ./data/chroma:/app/chroma_db
+      - huggingface_cache:/root/.cache/huggingface
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: celery -A app.worker worker --loglevel=info -Q default
+    env_file: .env
+    volumes:
+      - ./data/sqlite:/app/data
+      - ./data/chroma:/app/chroma_db
+      - huggingface_cache:/root/.cache/huggingface
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+volumes:
+  huggingface_cache:
