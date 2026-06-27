@@ -1,4 +1,5 @@
 import json
+from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -6,7 +7,7 @@ from app.agent.language_detector import detect_language
 from app.agent.rule_engine import get_matching_rules
 from app.rag.embedder import embed
 from app.rag.retriever import query
-from app.llm.client import chat_complete
+from app.llm.client import chat_complete, chat_complete_stream
 from app.tools import get_tools, get_tool_map
 from app.db.models import Conversation, Message
 
@@ -120,3 +121,98 @@ async def run(message: str, session_id: str, db: AsyncSession) -> dict:
     await db.commit()
 
     return {"reply": final_reply, "language": lang}
+
+
+async def run_stream(
+    message: str, session_id: str, db: AsyncSession
+) -> AsyncGenerator[str, None]:
+    """Streaming variant of run(). Yields reply tokens one at a time.
+    Tool calls are resolved synchronously before streaming the final reply.
+    """
+    lang = detect_language(message)
+
+    result = await db.execute(select(Conversation).where(Conversation.session_id == session_id))
+    conv = result.scalar_one_or_none()
+    if not conv:
+        conv = Conversation(session_id=session_id, language=lang)
+        db.add(conv)
+        await db.flush()
+
+    rule_bodies = await get_matching_rules(message, db)
+    rules_text = "\n".join(f"- {body}" for body in rule_bodies) if rule_bodies else "None."
+    query_vec = embed(message)
+    chunks = query(query_vec, n_results=3)
+    relevant = [c for c in chunks if c["distance"] < DISTANCE_THRESHOLD]
+    context_block = ""
+    if relevant:
+        context_block = "Relevant information from our knowledge base:\n" + "\n---\n".join(
+            c["text"] for c in relevant
+        )
+
+    system_content = _SYSTEM_TEMPLATE.format(
+        reply_language="French" if lang == "fr" else "English",
+        rules_text=rules_text,
+    )
+
+    hist_result = await db.execute(
+        select(Message)
+        .where(Message.conversation_id == conv.id)
+        .order_by(Message.created_at.desc())
+        .limit(HISTORY_LIMIT)
+    )
+    history = list(reversed(hist_result.scalars().all()))
+
+    messages: list[dict] = [{"role": "system", "content": system_content}]
+    for m in history:
+        role = m.role if m.role in ("user", "assistant") else "assistant"
+        messages.append({"role": role, "content": m.content})
+
+    user_content = message
+    if context_block:
+        user_content = f"{context_block}\n\nCustomer question: {message}"
+    messages.append({"role": "user", "content": user_content})
+
+    tools_list = get_tools(db)
+    tool_defs = [t.definition() for t in tools_list]
+    tool_map = get_tool_map(db)
+
+    # Non-streaming first pass to detect tool calls
+    probe_msg = await chat_complete(messages, tools=tool_defs)
+
+    final_messages = messages
+    if probe_msg.tool_calls:
+        tc = probe_msg.tool_calls[0]
+        tool_name = tc.function.name
+        tool_params = json.loads(tc.function.arguments)
+        tool = tool_map.get(tool_name)
+        tool_result: dict = {}
+        if tool:
+            tool_result = await tool.call(tool_params)
+        final_messages = messages + [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [{
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {"name": tool_name, "arguments": tc.function.arguments},
+                }],
+            },
+            {
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": json.dumps(tool_result),
+            },
+        ]
+        db.add(Message(conversation_id=conv.id, role="tool", content=json.dumps(tool_result), tool_name=tool_name))
+
+    db.add(Message(conversation_id=conv.id, role="user", content=message))
+
+    collected_reply = []
+    async for token in chat_complete_stream(final_messages):
+        collected_reply.append(token)
+        yield token
+
+    full_reply = "".join(collected_reply)
+    db.add(Message(conversation_id=conv.id, role="assistant", content=full_reply))
+    await db.commit()
