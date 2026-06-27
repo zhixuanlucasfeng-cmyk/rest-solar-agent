@@ -1,91 +1,125 @@
-/**
- * Rest Solar chat widget.
- * Usage: <script src="/static/widget.js" data-agent-url="https://your-server.com"></script>
- */
 (function () {
-  const script = document.currentScript;
-  const BASE_URL = (script && script.getAttribute('data-agent-url')) || '';
-  const SESSION_ID = ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
-    (c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))).toString(16));
+  const CONV_ID = Math.floor(Math.random() * 1000000);
+  const isMobile = window.innerWidth < 768;
+  let ws = null;
+  let reconnectDelay = 1000;
 
-  const CSS = `
-    #rs-widget-btn{position:fixed;bottom:24px;right:24px;width:56px;height:56px;
-      border-radius:50%;background:#f59e0b;border:none;cursor:pointer;
-      box-shadow:0 4px 20px rgba(0,0,0,.4);z-index:9999;font-size:24px}
-    #rs-widget-box{position:fixed;bottom:92px;right:24px;width:340px;
-      border-radius:16px;overflow:hidden;display:none;flex-direction:column;
-      box-shadow:0 8px 40px rgba(0,0,0,.6);z-index:9999;
-      background:#0f172a;font-family:system-ui,sans-serif;max-height:500px}
-    #rs-widget-box.open{display:flex}
-    #rs-whead{background:#1e293b;padding:12px 16px;display:flex;
-      align-items:center;justify-content:space-between;color:#fff;font-size:14px;font-weight:600}
-    #rs-wmsg{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
-    .rs-b{padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.5;max-width:80%}
-    .rs-b-u{background:#1e40af;color:#fff;align-self:flex-end;border-radius:14px 14px 4px 14px}
-    .rs-b-a{background:#1e293b;color:#e2e8f0;border-radius:14px 14px 14px 4px}
-    #rs-winput{display:flex;gap:8px;padding:10px;background:#1e293b;border-top:1px solid #334155}
-    #rs-winput input{flex:1;background:#0f172a;border:1px solid #334155;color:#fff;
-      border-radius:8px;padding:8px 12px;font-size:13px;outline:none}
-    #rs-winput button{background:#f59e0b;border:none;color:#000;font-weight:700;
-      padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px}
-  `;
-  const style = document.createElement('style');
-  style.textContent = CSS;
-  document.head.appendChild(style);
-
-  document.body.insertAdjacentHTML('beforeend', `
-    <button id="rs-widget-btn" aria-label="Chat with Rest Solar">&#9728;</button>
-    <div id="rs-widget-box">
-      <div id="rs-whead">
-        <span>Rest Solar Assistant</span>
-        <button onclick="document.getElementById('rs-widget-box').classList.remove('open')"
-          style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:18px">&#x2715;</button>
+  function createWidget() {
+    const container = document.createElement('div');
+    container.id = 'rs-chat-container';
+    container.innerHTML = `
+      <div id="rs-chat-bubble" style="
+        position:fixed; bottom:24px; right:24px; width:56px; height:56px;
+        background:#1e40af; border-radius:50%; display:flex; align-items:center;
+        justify-content:center; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.3); z-index:9999;">
+        <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
+          <path d="M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z"/>
+        </svg>
       </div>
-      <div id="rs-wmsg">
-        <div class="rs-b rs-b-a">Hello! Ask me about solar panels, prices, or delivery to Cameroon.</div>
+      <div id="rs-chat-window" style="
+        display:none; position:fixed; z-index:9998; background:white;
+        box-shadow:0 8px 32px rgba(0,0,0,0.2); flex-direction:column;
+        ${isMobile
+          ? 'top:0;left:0;right:0;bottom:0;border-radius:0;'
+          : 'bottom:90px;right:24px;width:360px;height:500px;border-radius:16px;'}
+      ">
+        <div style="background:#1e40af;color:white;padding:16px;border-radius:${isMobile ? '0' : '16px 16px 0 0'};
+                    display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-weight:600;font-size:16px;">Rest Solar Support</span>
+          <button id="rs-close" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;">&#x2715;</button>
+        </div>
+        <div id="rs-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;"></div>
+        <div style="padding:12px;border-top:1px solid #e5e7eb;display:flex;gap:8px;">
+          <input id="rs-input" type="text" placeholder="Type a message…"
+            style="flex:1;border:1px solid #d1d5db;border-radius:8px;padding:10px 14px;font-size:16px;outline:none;">
+          <button id="rs-send" style="background:#1e40af;color:white;border:none;border-radius:8px;
+                  padding:10px 16px;cursor:pointer;font-size:14px;">Send</button>
+        </div>
       </div>
-      <div id="rs-winput">
-        <input id="rs-wi" type="text" placeholder="Type your question...">
-        <button id="rs-wsend">&#10148;</button>
-      </div>
-    </div>
-  `);
+    `;
+    document.body.appendChild(container);
 
-  document.getElementById('rs-widget-btn').onclick = () =>
-    document.getElementById('rs-widget-box').classList.toggle('open');
-
-  async function send() {
-    const input = document.getElementById('rs-wi');
-    const text = input.value.trim();
-    if (!text) return;
-    input.value = '';
-
-    const msgs = document.getElementById('rs-wmsg');
-    const addBubble = (t, cls) => {
-      const d = document.createElement('div');
-      d.className = `rs-b ${cls}`;
-      d.textContent = t;
-      msgs.appendChild(d);
-      msgs.scrollTop = msgs.scrollHeight;
-      return d;
-    };
-
-    addBubble(text, 'rs-b-u');
-    const thinking = addBubble('...', 'rs-b-a');
-
-    try {
-      const res = await fetch(`${BASE_URL}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, session_id: SESSION_ID }),
-      });
-      const data = await res.json();
-      thinking.textContent = data.reply;
-    } catch {
-      thinking.textContent = 'Could not connect. Please try again.';
-    }
+    document.getElementById('rs-chat-bubble').onclick = openChat;
+    document.getElementById('rs-close').onclick = closeChat;
+    document.getElementById('rs-send').onclick = sendMessage;
+    document.getElementById('rs-input').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') sendMessage();
+    });
   }
 
-  document.getElementById('rs-wsend').onclick = send;
-  document.getElementById('rs-wi').onkeydown = e => { if (e.key === 'Enter') send(); };
+  function connectWS() {
+    const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(protocol + '://' + location.host + '/ws/' + CONV_ID);
+
+    ws.onmessage = function (event) {
+      const data = JSON.parse(event.data);
+      if (data.type === 'start') {
+        appendMessage('assistant', '');
+      } else if (data.type === 'token') {
+        appendToken(data.text);
+      } else if (data.type === 'agent_message') {
+        appendMessage('agent', data.text);
+      } else if (data.type === 'status') {
+        appendMessage('status', data.text);
+      }
+    };
+
+    ws.onclose = function () {
+      setTimeout(function () {
+        reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+        connectWS();
+      }, reconnectDelay);
+    };
+
+    ws.onopen = function () { reconnectDelay = 1000; };
+  }
+
+  function openChat() {
+    document.getElementById('rs-chat-window').style.display = 'flex';
+    document.getElementById('rs-chat-bubble').style.display = 'none';
+    if (!ws || ws.readyState !== WebSocket.OPEN) connectWS();
+  }
+
+  function closeChat() {
+    document.getElementById('rs-chat-window').style.display = 'none';
+    document.getElementById('rs-chat-bubble').style.display = 'flex';
+  }
+
+  function sendMessage() {
+    const input = document.getElementById('rs-input');
+    const text = input.value.trim();
+    if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+    appendMessage('user', text);
+    ws.send(JSON.stringify({ message: text }));
+    input.value = '';
+  }
+
+  let currentAssistantMsg = null;
+
+  function appendMessage(role, text) {
+    const msgs = document.getElementById('rs-messages');
+    const div = document.createElement('div');
+    div.style.cssText = [
+      'max-width:80%; padding:10px 14px; border-radius:12px; font-size:14px; line-height:1.5;',
+      role === 'user'
+        ? 'align-self:flex-end;background:#1e40af;color:white;border-bottom-right-radius:4px;'
+        : role === 'status'
+        ? 'align-self:center;background:#f3f4f6;color:#6b7280;font-size:12px;'
+        : 'align-self:flex-start;background:#f3f4f6;color:#111;border-bottom-left-radius:4px;'
+    ].join('');
+    div.textContent = text;
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+    if (role === 'assistant') currentAssistantMsg = div;
+    return div;
+  }
+
+  function appendToken(token) {
+    if (!currentAssistantMsg) appendMessage('assistant', '');
+    currentAssistantMsg.textContent += token;
+    const msgs = document.getElementById('rs-messages');
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  createWidget();
 })();
