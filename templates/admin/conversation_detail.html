@@ -19,9 +19,45 @@
   {% endfor %}
 </div>
 <script>
-function takeover(convId) {
-  const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/admin/{{ current_user.id }}`);
-  ws.onopen = () => ws.send(JSON.stringify({action: "takeover", conversation_id: convId}));
+// Persistent admin WebSocket — opened once, handles incoming customer messages
+let adminWs = null;
+const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+
+function connectAdminWs() {
+  adminWs = new WebSocket(`${protocol}://${location.host}/ws/admin/{{ current_user.id }}`);
+
+  adminWs.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type === 'customer_message') {
+      appendMessage('Customer', data.text, '#dbeafe');
+    }
+  };
+
+  adminWs.onclose = () => {
+    setTimeout(connectAdminWs, 3000);
+  };
 }
+
+function appendMessage(role, text, bg) {
+  const msgs = document.querySelector('.space-y-3') || document.querySelector('[class*="space"]');
+  if (!msgs) return;
+  const div = document.createElement('div');
+  div.style.cssText = `background:${bg};padding:8px 12px;border-radius:8px;margin:4px 0;`;
+  div.textContent = `[LIVE] ${role}: ${text}`;
+  msgs.appendChild(div);
+  div.scrollIntoView();
+}
+
+function takeover(convId) {
+  if (!adminWs || adminWs.readyState !== WebSocket.OPEN) {
+    alert('Not connected to admin channel. Please wait and retry.');
+    return;
+  }
+  adminWs.send(JSON.stringify({action: 'takeover', conversation_id: convId}));
+  document.querySelector('button[onclick]').textContent = 'Taking over...';
+}
+
+// Connect on page load
+connectAdminWs();
 </script>
 {% endblock %}

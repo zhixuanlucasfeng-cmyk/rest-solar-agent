@@ -54,6 +54,8 @@ class QuoteTool(BaseTool):
         vat_cny = round(subtotal_cny * product.vat_rate, 2)
         weight_total = (product.weight_kg or 0.0) * qty
         shipping_cny = round(weight_total * SHIPPING_RATE_CNY_PER_KG, 2)
+        if product.price_cny == 0:
+            return {"error": f"Product '{product.sku}' has no price set (price_cny is 0)"}
         total_cny = round(subtotal_cny + duty_cny + vat_cny + shipping_cny, 2)
         total_xaf = round(total_cny * (product.price_xaf / product.price_cny), 2)
 

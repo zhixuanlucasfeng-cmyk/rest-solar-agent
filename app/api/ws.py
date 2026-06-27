@@ -3,7 +3,9 @@ import os
 import redis.asyncio as aioredis
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from app.db.session import get_db
+from app.db.models import Conversation
 from app.agent.orchestrator import run_stream
 from app.api.ws_manager import manager
 
@@ -17,7 +19,24 @@ def get_redis():
 
 
 @router.websocket("/ws/admin/{user_id}")
-async def admin_ws(user_id: int, ws: WebSocket):
+async def admin_ws(user_id: int, ws: WebSocket, db: AsyncSession = Depends(get_db)):
+    # Verify JWT before accepting
+    from app.admin.auth import decode_access_token
+    from jose import JWTError
+    token = ws.cookies.get("admin_token")
+    if not token:
+        await ws.close(code=4003)
+        return
+    try:
+        payload = decode_access_token(token)
+        token_user_id = int(payload.get("sub", -1))
+    except (JWTError, ValueError):
+        await ws.close(code=4003)
+        return
+    if token_user_id != user_id:
+        await ws.close(code=4003)
+        return
+
     await manager.connect_admin(user_id, ws)
     redis = get_redis()
     try:
@@ -60,20 +79,37 @@ async def customer_ws(conversation_id: int, ws: WebSocket, db: AsyncSession = De
     await manager.connect_customer(conversation_id, ws)
     redis = get_redis()
     session_id = f"conv-{conversation_id}"
+
+    # Create/find conversation immediately and send DB id to client
+    result = await db.execute(select(Conversation).where(Conversation.session_id == session_id))
+    conv = result.scalar_one_or_none()
+    if not conv:
+        conv = Conversation(session_id=session_id, language="en")
+        db.add(conv)
+        await db.flush()
+        await db.commit()
+
+    # Send DB conv id so admin dashboard and client share the same id
+    await manager.send_to_customer(conversation_id, {"type": "init", "conv_id": conv.id})
+
+    # Register by DB id in manager so admin can reach this WS
+    manager.customer[conv.id] = ws  # also keyed by DB id
+
     try:
         while True:
             text = await ws.receive_text()
             data = json.loads(text)
             message = data.get("message", "")
 
-            mode = await redis.get(f"conv:{conversation_id}:mode") or "ai"
+            # Use DB conv.id for Redis (so admin takeover aligns)
+            mode = await redis.get(f"conv:{conv.id}:mode") or "ai"
 
             if mode == "human":
-                agent_id_str = await redis.get(f"conv:{conversation_id}:agent")
+                agent_id_str = await redis.get(f"conv:{conv.id}:agent")
                 if agent_id_str:
                     await manager.send_to_admin(int(agent_id_str), {
                         "type": "customer_message",
-                        "conversation_id": conversation_id,
+                        "conversation_id": conv.id,
                         "text": message,
                     })
                     await manager.send_to_customer(conversation_id, {
@@ -90,4 +126,5 @@ async def customer_ws(conversation_id: int, ws: WebSocket, db: AsyncSession = De
                 await manager.send_to_customer(conversation_id, {"type": "end"})
     except WebSocketDisconnect:
         manager.disconnect_customer(conversation_id)
+        manager.customer.pop(conv.id, None)  # also remove DB-id entry
         await redis.aclose()
