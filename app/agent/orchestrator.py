@@ -7,7 +7,7 @@ from app.agent.rule_engine import get_matching_rules
 from app.rag.embedder import embed
 from app.rag.retriever import query
 from app.llm.client import chat_complete
-from app.tools.currency import TOOLS, TOOL_MAP
+from app.tools import get_tools, get_tool_map
 from app.db.models import Conversation, Message
 
 DISTANCE_THRESHOLD = 0.5
@@ -72,7 +72,9 @@ async def run(message: str, session_id: str, db: AsyncSession) -> dict:
         user_content = f"{context_block}\n\nCustomer question: {message}"
     messages.append({"role": "user", "content": user_content})
 
-    tool_defs = [t.definition() for t in TOOLS]
+    tools_list = get_tools(db)
+    tool_defs = [t.definition() for t in tools_list]
+    tool_map = get_tool_map(db)
     llm_msg = await chat_complete(messages, tools=tool_defs)
 
     final_reply: str
@@ -81,7 +83,7 @@ async def run(message: str, session_id: str, db: AsyncSession) -> dict:
         tool_name = tc.function.name
         tool_params = json.loads(tc.function.arguments)
 
-        tool = TOOL_MAP.get(tool_name)
+        tool = tool_map.get(tool_name)
         if tool:
             tool_result = await tool.call(tool_params)
 
