@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Form, Depends, Response
+from fastapi import APIRouter, Request, Form, Depends, Response, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -83,12 +83,12 @@ async def conversation_detail(
 ):
     result = await db.execute(select(Conversation).where(Conversation.id == conv_id))
     conv = result.scalar_one_or_none()
-    msgs = []
-    if conv:
-        msg_result = await db.execute(
-            select(Message).where(Message.conversation_id == conv_id).order_by(Message.created_at)
-        )
-        msgs = msg_result.scalars().all()
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    msg_result = await db.execute(
+        select(Message).where(Message.conversation_id == conv_id).order_by(Message.created_at)
+    )
+    msgs = msg_result.scalars().all()
     return templates.TemplateResponse(
         request=request, name="admin/conversation_detail.html",
         context={"current_user": current_user, "conversation": conv, "messages": msgs},

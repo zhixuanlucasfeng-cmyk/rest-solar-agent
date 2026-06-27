@@ -20,7 +20,7 @@
 </div>
 <script>
 function takeover(convId) {
-  const ws = new WebSocket(`ws://localhost/ws/admin/{{ current_user.id }}`);
+  const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/admin/{{ current_user.id }}`);
   ws.onopen = () => ws.send(JSON.stringify({action: "takeover", conversation_id: convId}));
 }
 </script>
