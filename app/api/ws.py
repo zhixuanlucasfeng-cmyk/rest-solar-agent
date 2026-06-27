@@ -46,26 +46,26 @@ async def admin_ws(user_id: int, ws: WebSocket, db: AsyncSession = Depends(get_d
             action = data.get("action")
 
             if action == "takeover":
-                conv_id = int(data["conversation_id"])
-                await redis.set(f"conv:{conv_id}:mode", "human")
-                await redis.set(f"conv:{conv_id}:agent", str(user_id))
-                await manager.send_to_customer(conv_id, {
+                conv_db_id = int(data["conversation_id"])
+                await redis.set(f"conv:{conv_db_id}:mode", "human")
+                await redis.set(f"conv:{conv_db_id}:agent", str(user_id))
+                await manager.send_to_customer_by_db_id(conv_db_id, {
                     "type": "status",
                     "text": "You have been connected to a live agent.",
                 })
 
             elif action == "release":
-                conv_id = int(data["conversation_id"])
-                await redis.set(f"conv:{conv_id}:mode", "ai")
-                await redis.delete(f"conv:{conv_id}:agent")
-                await manager.send_to_customer(conv_id, {
+                conv_db_id = int(data["conversation_id"])
+                await redis.set(f"conv:{conv_db_id}:mode", "ai")
+                await redis.delete(f"conv:{conv_db_id}:agent")
+                await manager.send_to_customer_by_db_id(conv_db_id, {
                     "type": "status",
                     "text": "You have been reconnected to the AI assistant.",
                 })
 
             elif action == "message":
-                conv_id = int(data["conversation_id"])
-                await manager.send_to_customer(conv_id, {
+                conv_db_id = int(data["conversation_id"])
+                await manager.send_to_customer_by_db_id(conv_db_id, {
                     "type": "agent_message",
                     "text": data.get("text", ""),
                 })
@@ -76,7 +76,6 @@ async def admin_ws(user_id: int, ws: WebSocket, db: AsyncSession = Depends(get_d
 
 @router.websocket("/ws/{conversation_id}")
 async def customer_ws(conversation_id: int, ws: WebSocket, db: AsyncSession = Depends(get_db)):
-    await manager.connect_customer(conversation_id, ws)
     redis = get_redis()
     session_id = f"conv-{conversation_id}"
 
@@ -89,11 +88,11 @@ async def customer_ws(conversation_id: int, ws: WebSocket, db: AsyncSession = De
         await db.flush()
         await db.commit()
 
-    # Send DB conv id so admin dashboard and client share the same id
-    await manager.send_to_customer(conversation_id, {"type": "init", "conv_id": conv.id})
+    # Connect with both channel_id (URL int) and db_id (DB primary key)
+    await manager.connect_customer(conversation_id, conv.id, ws)
 
-    # Register by DB id in manager so admin can reach this WS
-    manager.customer[conv.id] = ws  # also keyed by DB id
+    # Send DB conv id so admin dashboard and client share the same id
+    await manager.send_to_customer_by_channel(conversation_id, {"type": "init", "conv_id": conv.id})
 
     try:
         while True:
@@ -112,19 +111,18 @@ async def customer_ws(conversation_id: int, ws: WebSocket, db: AsyncSession = De
                         "conversation_id": conv.id,
                         "text": message,
                     })
-                    await manager.send_to_customer(conversation_id, {
+                    await manager.send_to_customer_by_channel(conversation_id, {
                         "type": "status",
                         "text": "Message sent to your agent.",
                     })
             else:
-                await manager.send_to_customer(conversation_id, {"type": "start"})
+                await manager.send_to_customer_by_channel(conversation_id, {"type": "start"})
                 async for token in run_stream(message, session_id, db):
-                    await manager.send_to_customer(conversation_id, {
+                    await manager.send_to_customer_by_channel(conversation_id, {
                         "type": "token",
                         "text": token,
                     })
-                await manager.send_to_customer(conversation_id, {"type": "end"})
+                await manager.send_to_customer_by_channel(conversation_id, {"type": "end"})
     except WebSocketDisconnect:
-        manager.disconnect_customer(conversation_id)
-        manager.customer.pop(conv.id, None)  # also remove DB-id entry
+        manager.disconnect_customer(conversation_id, conv.id)
         await redis.aclose()

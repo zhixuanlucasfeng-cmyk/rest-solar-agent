@@ -30,6 +30,11 @@ async def test_ws_connect_and_ai_reply(monkeypatch):
     transport = ASGIWebSocketTransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         async with aconnect_ws("/ws/1", client) as ws:
+            # C1 fix: server sends init with DB conv_id before any user message
+            init_msg = json.loads(await ws.receive_text())
+            assert init_msg["type"] == "init"
+            assert isinstance(init_msg["conv_id"], int) and init_msg["conv_id"] > 0
+
             await ws.send_text(json.dumps({"message": "hi"}))
             msg1 = json.loads(await ws.receive_text())
             assert msg1["type"] == "start"

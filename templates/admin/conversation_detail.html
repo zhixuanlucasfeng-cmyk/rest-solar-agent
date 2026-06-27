@@ -18,9 +18,29 @@
   </div>
   {% endfor %}
 </div>
+
+<!-- Agent reply panel — only shown when in human takeover mode -->
+<div id="agent-reply-panel" style="display:none; padding:16px; border-top:1px solid #e5e7eb; background:#f9fafb; max-width:42rem; margin-top:12px; border-radius:8px;">
+  <p style="font-size:0.85rem; color:#6b7280; margin-bottom:8px;">Human takeover active — you are now chatting directly with the customer.</p>
+  <div style="display:flex; gap:8px;">
+    <input id="agent-msg-input" type="text" placeholder="Type your reply..."
+      style="flex:1; border:1px solid #d1d5db; border-radius:6px; padding:8px 12px; font-size:0.95rem;"
+      onkeydown="if(event.key==='Enter'){sendAgentReply();}">
+    <button onclick="sendAgentReply()"
+      style="background:#1e40af; color:white; border:none; border-radius:6px; padding:8px 16px; cursor:pointer;">
+      Send
+    </button>
+    <button onclick="releaseToAI()"
+      style="background:#6b7280; color:white; border:none; border-radius:6px; padding:8px 16px; cursor:pointer;">
+      Release to AI
+    </button>
+  </div>
+</div>
+
 <script>
 // Persistent admin WebSocket — opened once, handles incoming customer messages
 let adminWs = null;
+let activeTakeoverConvId = null;
 const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
 
 function connectAdminWs() {
@@ -54,7 +74,25 @@ function takeover(convId) {
     return;
   }
   adminWs.send(JSON.stringify({action: 'takeover', conversation_id: convId}));
-  document.querySelector('button[onclick]').textContent = 'Taking over...';
+  activeTakeoverConvId = convId;
+  document.getElementById('agent-reply-panel').style.display = 'block';
+}
+
+function sendAgentReply() {
+  if (!activeTakeoverConvId || !adminWs || adminWs.readyState !== WebSocket.OPEN) return;
+  const input = document.getElementById('agent-msg-input');
+  const text = input.value.trim();
+  if (!text) return;
+  adminWs.send(JSON.stringify({action: 'message', conversation_id: activeTakeoverConvId, text}));
+  appendMessage('Agent (You)', text, '#dcfce7');
+  input.value = '';
+}
+
+function releaseToAI() {
+  if (!activeTakeoverConvId || !adminWs || adminWs.readyState !== WebSocket.OPEN) return;
+  adminWs.send(JSON.stringify({action: 'release', conversation_id: activeTakeoverConvId}));
+  activeTakeoverConvId = null;
+  document.getElementById('agent-reply-panel').style.display = 'none';
 }
 
 // Connect on page load
