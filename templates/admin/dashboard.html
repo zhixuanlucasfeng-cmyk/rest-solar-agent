@@ -1,0 +1,15 @@
+{% extends "admin/base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-6">Dashboard</h1>
+<div class="grid grid-cols-2 gap-4 max-w-lg">
+  <div class="bg-white rounded shadow p-6 text-center">
+    <div class="text-4xl font-bold text-blue-800">{{ conv_count }}</div>
+    <div class="text-gray-500 mt-1 text-sm">Total Conversations</div>
+  </div>
+  <div class="bg-white rounded shadow p-6 text-center">
+    <div class="text-4xl font-bold text-orange-500">{{ open_tickets }}</div>
+    <div class="text-gray-500 mt-1 text-sm">Open Tickets</div>
+  </div>
+</div>
+{% endblock %}

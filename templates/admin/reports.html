@@ -1,0 +1,12 @@
+{% extends "admin/base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-6">Reports</h1>
+<div class="bg-white rounded shadow p-6 max-w-md">
+  <h2 class="font-semibold mb-2">Export Conversations</h2>
+  <p class="text-sm text-gray-500 mb-4">Triggers a Celery task to generate a CSV of all conversations. Check your email when complete.</p>
+  <form action="/admin/reports/export" method="post">
+    <button type="submit" class="bg-blue-800 text-white px-4 py-2 rounded text-sm">Trigger Export</button>
+  </form>
+</div>
+{% endblock %}

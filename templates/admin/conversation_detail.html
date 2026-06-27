@@ -1,0 +1,27 @@
+{% extends "admin/base.html" %}
+{% block title %}Conversation #{{ conversation.id }}{% endblock %}
+{% block content %}
+<div class="flex justify-between items-center mb-6">
+  <h1 class="text-2xl font-bold">Conversation #{{ conversation.id }}</h1>
+  <button onclick="takeover({{ conversation.id }})"
+          class="bg-orange-500 text-white px-4 py-2 rounded text-sm hover:bg-orange-600">
+    Take Over
+  </button>
+</div>
+<div class="bg-white rounded shadow p-4 space-y-3 max-w-2xl">
+  {% for m in messages %}
+  <div class="{% if m.role == 'user' %}text-right{% endif %}">
+    <span class="inline-block px-3 py-2 rounded text-sm
+      {% if m.role == 'user' %}bg-blue-100{% elif m.role == 'assistant' %}bg-gray-100{% else %}bg-yellow-50 text-xs{% endif %}">
+      {% if m.role == 'tool' %}<em>Tool: {{ m.tool_name }}</em> — {% endif %}{{ m.content }}
+    </span>
+  </div>
+  {% endfor %}
+</div>
+<script>
+function takeover(convId) {
+  const ws = new WebSocket(`ws://localhost/ws/admin/{{ current_user.id }}`);
+  ws.onopen = () => ws.send(JSON.stringify({action: "takeover", conversation_id: convId}));
+}
+</script>
+{% endblock %}

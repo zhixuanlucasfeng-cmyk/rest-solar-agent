@@ -38,3 +38,32 @@ def send_ticket_email(ticket_id: int, subject: str, body: str) -> dict:
         return {"status": "sent", "ticket_id": ticket_id}
     except Exception as e:
         return {"status": "error", "error": str(e)}
+
+
+@celery_app.task(name="app.worker.export_conversations_csv")
+def export_conversations_csv() -> dict:
+    import csv, io, sqlite3
+    db_path = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/rest_solar.db")
+    db_path = db_path.replace("sqlite+aiosqlite:///", "").replace("sqlite:///", "")
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT c.id, c.session_id, c.language, c.created_at,
+               m.role, m.content, m.created_at
+        FROM conversations c
+        LEFT JOIN messages m ON m.conversation_id = c.id
+        ORDER BY c.id, m.created_at
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["conv_id", "session_id", "language", "conv_created", "role", "content", "msg_created"])
+    writer.writerows(rows)
+
+    admin_email = os.getenv("ADMIN_EMAIL", "")
+    if admin_email:
+        send_ticket_email.apply(args=[0, "Conversation Export Ready", buf.getvalue()])
+
+    return {"status": "done", "rows": len(rows)}

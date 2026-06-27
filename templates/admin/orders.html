@@ -1,0 +1,30 @@
+{% extends "admin/base.html" %}
+{% block title %}Orders{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-6">Orders</h1>
+<table class="w-full bg-white rounded shadow text-sm">
+  <thead class="bg-gray-50 text-left">
+    <tr><th class="p-3">Order #</th><th class="p-3">Customer</th><th class="p-3">Status</th><th class="p-3">Created</th><th class="p-3">Update</th></tr>
+  </thead>
+  <tbody>
+    {% for o in orders %}
+    <tr class="border-t">
+      <td class="p-3 font-mono text-xs">{{ o.order_number }}</td>
+      <td class="p-3">{{ o.customer_name or "—" }}</td>
+      <td class="p-3"><span class="bg-gray-100 px-2 py-1 rounded text-xs">{{ o.status }}</span></td>
+      <td class="p-3">{{ o.created_at.strftime("%Y-%m-%d") }}</td>
+      <td class="p-3">
+        <form action="/admin/orders/{{ o.id }}/status" method="post" class="flex gap-2">
+          <select name="status" class="border rounded px-2 py-1 text-xs">
+            {% for s in ["pending","confirmed","shipped","delivered","cancelled"] %}
+            <option value="{{ s }}" {% if o.status == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="text-blue-600 hover:underline text-xs">Save</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
