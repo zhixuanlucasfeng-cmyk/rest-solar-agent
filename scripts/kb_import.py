@@ -62,6 +62,8 @@ def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVE
         chunk = text[start:end].strip()
         if chunk:
             chunks.append(chunk)
+        if end == len(text):
+            break
         start = end - overlap
     return chunks
 
