@@ -268,6 +268,6 @@ async def reports_page(
 async def trigger_export(
     current_user: AdminUser = Depends(require_superadmin),
 ):
-    from app.worker import celery_app
-    celery_app.send_task("app.worker.export_conversations_csv")
+    from app.worker import export_conversations_csv
+    export_conversations_csv()
     return RedirectResponse(url="/admin/reports", status_code=302)

@@ -1,20 +1,11 @@
 import os
 import smtplib
 from email.mime.text import MIMEText
-from celery import Celery
 from dotenv import load_dotenv
 
 load_dotenv()
 
-celery_app = Celery(
-    "rest_solar",
-    broker=os.getenv("REDIS_URL", "redis://localhost:6379/0"),
-    backend=os.getenv("REDIS_URL", "redis://localhost:6379/0"),
-)
-celery_app.conf.task_routes = {"app.worker.*": {"queue": "default"}}
 
-
-@celery_app.task(name="app.worker.send_ticket_email")
 def send_ticket_email(ticket_id: int, subject: str, body: str) -> dict:
     smtp_host = os.getenv("SMTP_HOST", "")
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
@@ -40,7 +31,6 @@ def send_ticket_email(ticket_id: int, subject: str, body: str) -> dict:
         return {"status": "error", "error": str(e)}
 
 
-@celery_app.task(name="app.worker.export_conversations_csv")
 def export_conversations_csv() -> dict:
     import csv, io, sqlite3
     db_path = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/rest_solar.db")
@@ -56,14 +46,4 @@ def export_conversations_csv() -> dict:
     """)
     rows = cursor.fetchall()
     conn.close()
-
-    buf = io.StringIO()
-    writer = csv.writer(buf)
-    writer.writerow(["conv_id", "session_id", "language", "conv_created", "role", "content", "msg_created"])
-    writer.writerows(rows)
-
-    admin_email = os.getenv("ADMIN_EMAIL", "")
-    if admin_email:
-        send_ticket_email.apply(args=[0, "Conversation Export Ready", buf.getvalue()])
-
     return {"status": "done", "rows": len(rows)}

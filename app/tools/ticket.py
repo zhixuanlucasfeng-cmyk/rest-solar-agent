@@ -56,7 +56,7 @@ class TicketTool(BaseTool):
         await self._db.flush()
         await self._db.refresh(ticket)
 
-        send_ticket_email.delay(ticket.id, subject, body)
+        send_ticket_email(ticket.id, subject, body)
 
         return {
             "ticket_id": ticket.id,
