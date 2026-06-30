@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "paraphrase-multilingual-MiniLM-L12-v2")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-small")
 
 
 @lru_cache(maxsize=1)
