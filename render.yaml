@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: rest-solar-ai
+    runtime: docker
+    plan: starter
+    envVars:
+      - key: LLM_BASE_URL
+        value: https://api.deepseek.com
+      - key: LLM_MODEL
+        value: deepseek-chat
+      - key: LLM_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:///./data/rest_solar.db
+      - key: ADMIN_SECRET_KEY
+        generateValue: true

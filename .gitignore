@@ -2,12 +2,6 @@
 .env
 __pycache__/
 *.pyc
-data/chroma_db/
-data/rest_solar.db
-data/sqlite/*.db
-data/chroma/*
-!data/sqlite/.gitkeep
-!data/chroma/.gitkeep
 .pytest_cache/
 *.egg-info/
 dist/
