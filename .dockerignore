@@ -1,11 +1,11 @@
 .env
 .env.*
-data/
 __pycache__/
 *.pyc
 *.pyo
 .venv/
 .git/
 .superpowers/
-*.db
-chroma_db/
+data/chroma_db/
+data/chroma/
+data/sqlite/
