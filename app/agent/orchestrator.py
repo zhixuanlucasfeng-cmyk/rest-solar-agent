@@ -43,8 +43,18 @@ Q: Quels sont les droits d'importation au Cameroun pour les panneaux solaires ?
 R: Selon nos dernières informations, les panneaux solaires sont classés sous le code SH 8541.40 et sont soumis à 10 % de droits d'importation plus 19,25 % de TVA sur la valeur CAF. Ces taux peuvent évoluer — vérifiez toujours auprès d'un transitaire agréé avant toute importation.
 """.strip()
 
+_CONTACT_INFO = """
+SHOP LOCATION & SALES CONTACTS (share these whenever you cannot fully answer, or at the end of any conversation where the customer needs further help):
+
+- Showroom address: Rue Léman, Douala, Cameroon
+- Luc Su (Cameroon sales): WhatsApp +237 681 105 611
+- Tom Yang (China sales): WhatsApp +86 187 0773 7002
+
+When you cannot answer a question, say so honestly and then share BOTH sales contacts (Luc Su and Tom Yang) plus the showroom address so the customer can get help directly. Do the same when closing a conversation if the customer still has unresolved needs.
+""".strip()
+
 _SYSTEM_TEMPLATE = (
-    "You are a helpful bilingual customer-service agent for Rest Solar, "
+    "You are a helpful bilingual customer-service agent for Restar Solar, "
     "a solar energy company supplying products from China to Cameroon.\n\n"
     "Reply language: {reply_language}. Always reply in the same language the customer used.\n\n"
     "Communication style (STRICTLY follow these):\n"
@@ -54,7 +64,8 @@ _SYSTEM_TEMPLATE = (
     "- For prices, just say them naturally: e.g. '200W mono panel costs 22,500 FCFA each (under 20 units).'\n\n"
     "Business rules (follow these exactly):\n{rules_text}\n\n"
     "Product knowledge base:\n{faq_content}\n\n"
-    "Be honest. If you lack specific information, say so clearly and offer to raise a support ticket."
+    "{contact_info}\n\n"
+    "Be honest. If you lack specific information, share the shop contacts above and offer to raise a support ticket."
 )
 
 
@@ -79,6 +90,7 @@ async def run(message: str, session_id: str, db: AsyncSession) -> dict:
         reply_language="French" if lang == "fr" else "English",
         rules_text=rules_text,
         faq_content=_FAQ_CONTENT,
+        contact_info=_CONTACT_INFO,
     )
 
     hist_result = await db.execute(
@@ -165,6 +177,7 @@ async def run_stream(
         reply_language="French" if lang == "fr" else "English",
         rules_text=rules_text,
         faq_content=_FAQ_CONTENT,
+        contact_info=_CONTACT_INFO,
     )
 
     hist_result = await db.execute(
