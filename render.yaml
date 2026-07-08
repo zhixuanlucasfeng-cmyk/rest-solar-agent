@@ -5,9 +5,9 @@ services:
     plan: starter
     envVars:
       - key: LLM_BASE_URL
-        value: https://api.deepseek.com
+        value: https://generativelanguage.googleapis.com/v1beta/openai/
       - key: LLM_MODEL
-        value: deepseek-chat
+        value: gemini-3.1-flash-lite
       - key: LLM_API_KEY
         sync: false
       - key: DATABASE_URL
