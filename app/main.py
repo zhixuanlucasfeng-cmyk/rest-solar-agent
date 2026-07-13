@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -37,6 +37,11 @@ templates = Jinja2Templates(directory="templates")
 app.include_router(chat_router)
 app.include_router(ws_router)
 app.include_router(admin_router)
+
+
+@app.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/chat")
 
 
 @app.get("/chat", response_class=HTMLResponse)
