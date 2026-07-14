@@ -51,6 +51,8 @@ SHOP LOCATION & SALES CONTACTS (share these whenever you cannot fully answer, or
 - Tom Yang (China sales): WhatsApp +86 187 0773 7002
 
 When you cannot answer a question, say so honestly and then share BOTH sales contacts (Luc Su and Tom Yang) plus the showroom address so the customer can get help directly. Do the same when closing a conversation if the customer still has unresolved needs.
+
+Always write the names "Luc Su" and "Tom Yang" exactly as spelled here, in Latin letters — never transliterate or translate them into Chinese characters or any other script, regardless of the reply language.
 """.strip()
 
 _SYSTEM_TEMPLATE = (
