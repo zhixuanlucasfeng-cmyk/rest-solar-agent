@@ -2,43 +2,43 @@ idx,sku,zip,filename,category,category_en,subcategory,panel_family,model,title_r
 1,ESS-001,Part1,HH3.6KS 6KS All-in-one System.pdf,ess,Energy Storage System (ESS),,,HH3,HH3.6KS 6KS All-in-one System,,,,5.12kWh,,480x485x190mm,LiFePO4;WiFi Monitoring,415,1534,False,lossless,True
 2,ESS-002,Part1,RT-ESSA Series Outdoor Cabinet Energy Storage System.pdf,ess,Energy Storage System (ESS),,,RT-ESSA,RT-ESSA Series Outdoor Cabinet Energy Storage System,,,,,,,,623,1089,False,lossless,True
 3,ESS-003,Part1,Residential ESS 10KW（Europe）.pdf,ess,Energy Storage System (ESS),,,Residential,Residential ESS 10KW（Europe）,,,,5.12kWh,,435x580x155mm,LiFePO4;WiFi Monitoring,707,1075,False,lossless,True
-4,ESS-004,Part1,SmartCube ESS Series RTHY(20~50)KWP3-RTLB(70~107)kWh.pdf,ess,Energy Storage System (ESS),,,SmartCube,SmartCube ESS Series RTHY(20~50)KWP3-RTLB(70~107)kWh,,,280Ah,17.92kWh,,,LiFePO4,413,825,True,lossless,True
-5,SP-005,Part1,RT6S-M 340-400W 1956x992x30.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT6S-M,RT6S-M 340-400W 1956x992x30,340-400W,,,,,,,8830,2142,False,lossless,True
+4,ESS-004,Part1,SmartCube ESS Series RTHY(20~50)KWP3-RTLB(70~107)kWh.pdf,ess,Energy Storage System (ESS),,,SmartCube,SmartCube ESS Series RTHY(20~50)KWP3-RTLB(70~107)kWh,,,280Ah,17.92kWh,,635x950x315mm,IP65;LiFePO4,413,825,True,lossless,True
+5,SP-005,Part1,RT6S-M 340-400W 1956x992x30.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT6S-M,RT6S-M 340-400W 1956x992x30,340-400W,,,,,1956x992x30mm,IP65;IP67,8830,2142,False,lossless,True
 6,SP-006,Part1,RT7I-M-BD 440-460W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT7I-M-BD,RT7I-M-BD 440-460W,440-460W,,,,,,TOPCon;Bifacial,10250,1788,False,lossless,True
-7,SP-007,Part1,RT7I-M-FB FULL BLACK 425-450W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT7I-M-FB,RT7I-M-FB FULL BLACK 425-450W,425-450W,,,,,,TOPCon;Full Black,9298,2373,False,lossless,True
-8,SP-008,Part1,RT7K-M 355-380W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT7K-M,RT7K-M 355-380W,355-380W,,,,,,,5162,911,True,lossless,True
+7,SP-007,Part1,RT7I-M-FB FULL BLACK 425-450W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT7I-M-FB,RT7I-M-FB FULL BLACK 425-450W,425-450W,,,,,2094x1038x35mm,Full Black;IP67;TOPCon,9298,2373,False,lossless,True
+8,SP-008,Part1,RT7K-M 355-380W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT7K-M,RT7K-M 355-380W,355-380W,,,,,,IP67,5162,911,True,lossless,True
 9,SP-009,Part1,RT8H-M TOPCON 510-535W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8H-M,RT8H-M TOPCON 510-535W,510-535W,,,,,,TOPCon,8155,1376,False,lossless,True
 10,SP-010,Part1,RT8H-M-BD 595-630W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8H-M-BD,RT8H-M-BD 595-630W,595-630W,,,,,,TOPCon;Bifacial,10675,3345,False,lossless,True
-11,SP-011,Part1,RT8H-M-DG 480-505W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8H-M-DG,RT8H-M-DG 480-505W,480-505W,,,,,,Dual Glass,9910,2229,False,lossless,True
+11,SP-011,Part1,RT8H-M-DG 480-505W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8H-M-DG,RT8H-M-DG 480-505W,480-505W,,,,,,Bifacial;Dual Glass,9910,2229,False,lossless,True
 12,SP-012,Part1,RT8I-M TOPCON 590-610W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8I-M,RT8I-M TOPCON 590-610W,590-610W,,,,,,TOPCon,9514,1715,False,lossless,True
 13,SP-013,Part1,RT8I-M TOPCON black frame 565-590W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8I-M,RT8I-M TOPCON black frame 565-590W,565-590W,,,,,,TOPCon;Black Frame,9838,1665,False,lossless,True
-14,SP-014,Part1,RT8I-M-DG 535-560W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8I-M-DG,RT8I-M-DG 535-560W,535-560W,,,,,,Dual Glass,10429,1853,False,lossless,True
+14,SP-014,Part1,RT8I-M-DG 535-560W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8I-M-DG,RT8I-M-DG 535-560W,535-560W,,,,,,Bifacial;Dual Glass,10429,1853,False,lossless,True
 15,SP-015,Part1,RT8I-M-DG TOPCON 605-630W 2382x1134x30mm.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8I-M-DG,RT8I-M-DG TOPCON 605-630W 2382x1134x30mm,605-630W,,,,,2382x1134x30mm,TOPCon;Bifacial;Dual Glass,10312,2378,False,lossless,True
 16,SP-016,Part1,RT8I-M-DG TOPCON black frame560-585W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8I-M-DG,RT8I-M-DG TOPCON black frame560-585W,560-585W,,,,,,TOPCon;Black Frame;Bifacial;Dual Glass,8727,1657,False,lossless,True
 17,SP-017,Part1,RT8K-M 440-465W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8K-M,RT8K-M 440-465W,440-465W,,,,,,,4704,790,True,lossless,True
 18,SP-018,Part1,RT8K-M TOPCON 470-500W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8K-M,RT8K-M TOPCON 470-500W,470-500W,,,,,,TOPCon,7296,1604,False,lossless,True
 19,SP-019,Part1,RT8K-M-DG 490-510W 1961x1134x30mm.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8K-M-DG,RT8K-M-DG 490-510W 1961x1134x30mm,490-510W,,,,,1961x1134x30mm,Bifacial;Dual Glass,9636,1814,False,lossless,True
-20,SP-020,Part1,RT8K-M-DG TOPCON 470-495W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8K-M-DG,RT8K-M-DG TOPCON 470-495W,470-495W,,,,,,TOPCon;Dual Glass,10964,2489,False,lossless,True
+20,SP-020,Part1,RT8K-M-DG TOPCON 470-495W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8K-M-DG,RT8K-M-DG TOPCON 470-495W,470-495W,,,,,,Bifacial;Dual Glass;TOPCon,10964,2489,False,lossless,True
 21,SP-021,Part1,RT8K-M-FB FULL BLACK 440-465W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8K-M-FB,RT8K-M-FB FULL BLACK 440-465W,440-465W,,,,,,Full Black,6025,1188,False,lossless,True
 22,SP-022,Part1,RT8K-M-FB TOPCON FULL BLACK 470-495W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8K-M-FB,RT8K-M-FB TOPCON FULL BLACK 470-495W,470-495W,,,,,,TOPCon;Full Black,6031,1192,False,lossless,True
 23,SP-023,Part1,RT8L-M-DG 595-640W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8L-M-DG,RT8L-M-DG 595-640W,595-640W,,,,,,TOPCon;Bifacial;Dual Glass,14134,4349,False,lossless,True
-24,SP-024,Part1,RT8S-M 250-300W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8S-M,RT8S-M 250-300W,250-300W,,,,,,,2893,861,True,lossless,True
+24,SP-024,Part1,RT8S-M 250-300W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8S-M,RT8S-M 250-300W,250-300W,,,,,1710x770x35mm,IP67,2893,861,True,lossless,True
 25,SP-025,Part1,RT8V-M TOPCON 490-515W 1961x1134x30.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8V-M,RT8V-M TOPCON 490-515W 1961x1134x30,490-515W,,,,,,TOPCon,8110,1363,False,lossless,True
 26,SP-026,Part1,RT8V-M-BD TOPCON 490-500W 1961x1134x30.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8V-M-BD,RT8V-M-BD TOPCON 490-500W 1961x1134x30,490-500W,,,,,,TOPCon;Bifacial,13619,2951,False,lossless,True
-27,SP-027,Part1,RT8V-M-DG TOPCON 420-435W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8V-M-DG,RT8V-M-DG TOPCON 420-435W,420-435W,,,,,,TOPCon;Dual Glass,8697,1768,False,lossless,True
+27,SP-027,Part1,RT8V-M-DG TOPCON 420-435W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8V-M-DG,RT8V-M-DG TOPCON 420-435W,420-435W,,,,,,Bifacial;Dual Glass;TOPCon,8697,1768,False,lossless,True
 28,SP-028,Part1,RT8V-M-FB FULL BLACK 390-415W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8V-M-FB,RT8V-M-FB FULL BLACK 390-415W,390-415W,,,,,,Full Black,4532,737,True,lossless,True
 29,SP-029,Part1,RT8X-M TOPCON 430-460W 1762x1134x30mm.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8X-M,RT8X-M TOPCON 430-460W 1762x1134x30mm,430-460W,,,,,1762x1134x30mm,TOPCon,7981,1607,False,lossless,True
 30,SP-030,Part1,RT8X-M-BD.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8X-M-BD,RT8X-M-BD,430-460W,,,,,,TOPCon;Bifacial,7703,1355,False,lossless,True
 31,SP-031,Part1,RT9H-M-BD 700-720W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT9H-M-BD,RT9H-M-BD 700-720W,700-720W,,,,,,TOPCon;Bifacial,10714,3359,False,lossless,True
 32,SP-032,Part1,RT9K-M-DG 585-610W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT9K-M-DG,RT9K-M-DG 585-610W,585-610W,,,,,,TOPCon;Bifacial;Dual Glass,9463,1877,False,lossless,True
-33,SP-033,Part1,RTM003M.pdf,solar_panels,Solar Panels,,RTM small panel,RTM003M,RTM003M,3W,,,,,,,5760,854,True,lossless,True
-34,SP-034,Part1,RTM040M 430x680x25mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM040M,RTM040M 430x680x25mm,40W,,,,,430x680x25mm,,4918,1087,False,lossless,True
-35,SP-035,Part1,RTM060M 210x52.5.pdf,solar_panels,Solar Panels,,RTM small panel,RTM060M,RTM060M 210x52.5,60W,,,,,,,10858,1669,False,lossless,True
-36,SP-036,Part1,RTM100-120M 166x83mm 1200x540x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM100-120M,RTM100-120M 166x83mm 1200x540x30mm,100-120W,,,,,1200x540x30mm,,4462,1221,False,lossless,True
-37,SP-037,Part1,RTM100M 156x78mm 1200x540x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM100M,RTM100M 156x78mm 1200x540x30mm,100W,,,,,1200x540x30mm,,11867,1749,False,lossless,True
-38,SP-038,Part1,RTM100M 210x78mm 1020x670x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM100M,RTM100M 210x78mm 1020x670x30mm,100W,,,,,1020x670x30mm,,2262,795,True,lossless,True
+33,SP-033,Part1,RTM003M.pdf,solar_panels,Solar Panels,,RTM small panel,RTM003M,RTM003M,1000W,,,,,,IP65;IP67,5760,854,True,lossless,True
+34,SP-034,Part1,RTM040M 430x680x25mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM040M,RTM040M 430x680x25mm,40W,,,,,430x680x25mm,IP65;IP67,4918,1087,False,lossless,True
+35,SP-035,Part1,RTM060M 210x52.5.pdf,solar_panels,Solar Panels,,RTM small panel,RTM060M,RTM060M 210x52.5,60W,,,,,,IP65;IP67,10858,1669,False,lossless,True
+36,SP-036,Part1,RTM100-120M 166x83mm 1200x540x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM100-120M,RTM100-120M 166x83mm 1200x540x30mm,100-120W,,,,,1200x540x30mm,IP65,4462,1221,False,lossless,True
+37,SP-037,Part1,RTM100M 156x78mm 1200x540x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM100M,RTM100M 156x78mm 1200x540x30mm,100W,,,,,1200x540x30mm,IP65,11867,1749,False,lossless,True
+38,SP-038,Part1,RTM100M 210x78mm 1020x670x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM100M,RTM100M 210x78mm 1020x670x30mm,100W,,,,,1020x670x30mm,IP65;IP67,2262,795,True,lossless,True
 39,SP-039,Part1,RTM160M 1260x580x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM160M,RTM160M 1260x580x30mm,160W,,,,,1260x580x30mm,,7533,1179,False,lossless,True
-40,SP-040,Part1,RTM170M 210x105mm 1230x670x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM170M,RTM170M 210x105mm 1230x670x30mm,170W,,,,,1230x670x30mm,,8359,1798,False,lossless,True
+40,SP-040,Part1,RTM170M 210x105mm 1230x670x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM170M,RTM170M 210x105mm 1230x670x30mm,170W,,,,,1230x670x30mm,IP65,8359,1798,False,lossless,True
 41,SP-041,Part1,RTM170M-BD1480x640x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM170M-BD1480x640x30mm,RTM170M-BD1480x640x30mm,170W,,,,,1480x640x30mm,,7884,1294,False,lossless,True
 42,SP-042,Part1,RTM175-195M.pdf,solar_panels,Solar Panels,,RTM small panel,RTM175-195M,RTM175-195M,175-195W,,,,,,,4099,1622,False,lossless,True
 43,SP-043,Part1,RTM200M 1217x992x35mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM200M,RTM200M 1217x992x35mm,200W,,,,,1217x992x35mm,,7541,1180,False,lossless,True
@@ -50,15 +50,15 @@ idx,sku,zip,filename,category,category_en,subcategory,panel_family,model,title_r
 49,SP-049,Part1,RTM300M TOPCON 1530x880x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM300M,RTM300M TOPCON 1530x880x30mm,300W,,,,,1530x880x30mm,TOPCon,10112,1470,False,lossless,True
 50,SP-050,Part1,RTM330M 1960x770x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM330M,RTM330M 1960x770x30mm,330W,,,,,1960x770x30mm,,11631,2548,False,lossless,True
 51,SP-051,Part1,RTM330M 210x105mm 1750x880x30.pdf,solar_panels,Solar Panels,,RTM small panel,RTM330M,RTM330M 210x105mm 1750x880x30,330W,,,,,,,884,1232,False,lossless,True
-52,SP-052,Part1,RTM340-400M 1956x992x35mm 350-400W.pdf,solar_panels,Solar Panels,,RTM small panel,RTM340-400M,RTM340-400M 1956x992x35mm 350-400W,350-400W,,,,,1956x992x35mm,,7834,2123,False,lossless,True
+52,SP-052,Part1,RTM340-400M 1956x992x35mm 350-400W.pdf,solar_panels,Solar Panels,,RTM small panel,RTM340-400M,RTM340-400M 1956x992x35mm 350-400W,350-400W,,,,,1956x992x35mm,IP65;IP67,7834,2123,False,lossless,True
 53,OTH-053,Part1,Cable.pdf,other,Other / Accessories,,,Cable,Cable,,,,,,,,468,207,True,lossless,True
-54,OTH-054,Part1,Connector.pdf,other,Other / Accessories,,,Connector,Connector,,,,,,,IP67,1005,927,True,lossless,True
+54,OTH-054,Part1,Connector.pdf,other,Other / Accessories,,,Connector,Connector,,,,,,,IP65;IP67,1005,927,True,lossless,True
 55,OTH-055,Part1,Freezer Refrigerator(2).pdf,other,Other / Accessories,,,Freezer Refrigerator(2),Freezer Refrigerator(2),,,,,,,,18164,4739,False,lossless,True
 56,OTH-056,Part1,Freezer Refrigerator.pdf,other,Other / Accessories,,,Freezer Refrigerator,Freezer Refrigerator,,,,,,,,57557,9131,False,lossless,True
 57,OTH-057,Part1,Solar Flood Light.pdf,other,Other / Accessories,,,Solar Flood Light,Solar Flood Light,,,,,,,,1033,1478,False,lossless,True
-58,CTRL-058,Part1,MPK6 Series.pdf,charge_controllers,Charge Controllers,MPPT Controller,,MPK6,MPK6 Series,,,,,,,,1854,2254,False,lossless,False
-59,CTRL-059,Part1,RTFT Series.pdf,charge_controllers,Charge Controllers,PWM Controller,,RTFT,RTFT Series,,,,,,,,311,427,True,lossless,True
-60,CTRL-060,Part1,RTNT Series.pdf,charge_controllers,Charge Controllers,PWM Controller,,RTNT,RTNT Series,,,,,,,,859,843,True,lossless,True
+58,CTRL-058,Part1,MPK6 Series.pdf,charge_controllers,Charge Controllers,MPPT Controller,,MPK6,MPK6 Series,,,30-100A,,12V/24V/36V/48V,,,1854,2254,False,lossless,True
+59,CTRL-059,Part1,RTFT Series.pdf,charge_controllers,Charge Controllers,PWM Controller,,RTFT,RTFT Series,,,2-60A,,12V / 24V,169x95x43mm,,311,427,True,lossless,True
+60,CTRL-060,Part1,RTNT Series.pdf,charge_controllers,Charge Controllers,PWM Controller,,RTNT,RTNT Series,,,2-60A,,12V / 24V,169x95x43mm,,859,843,True,lossless,True
 61,BAT-061,Part1,RF12-100A.pdf,batteries,Batteries,AGM Battery,,RF12-100A,RF12-100A,,,100Ah,,12/52/57/62V,,,1140,1207,False,lossless,True
 62,BAT-062,Part1,RF12-12A.pdf,batteries,Batteries,AGM Battery,,RF12-12A,RF12-12A,,,12Ah,,12V,,,1595,1764,False,lossless,True
 63,BAT-063,Part1,RF12-150A.pdf,batteries,Batteries,AGM Battery,,RF12-150A,RF12-150A,,,150Ah,,12/60/65/70V,,,927,940,True,lossless,True
@@ -68,45 +68,45 @@ idx,sku,zip,filename,category,category_en,subcategory,panel_family,model,title_r
 67,BAT-067,Part1,RTG12-150A Orange.pdf,batteries,Batteries,GEL Battery,,RTG12-150A,RTG12-150A Orange,,,150Ah,,12/60/65/70V,,,882,457,True,lossless,True
 68,BAT-068,Part1,RTG12-200A White.pdf,batteries,Batteries,GEL Battery,,RTG12-200A,RTG12-200A White,,,200Ah,,12/60/65/70V,,,1998,1247,False,lossless,True
 69,BAT-069,Part1,RTGB12-100A Blue.pdf,batteries,Batteries,GEL Battery,,RTGB12-100A,RTGB12-100A Blue,,,100Ah,,12V,,,1197,1320,False,lossless,True
-70,BAT-070,Part1,High Voltage Lithium-Ion Phosphate Battery Storage System.pdf,batteries,Batteries,LiFePO4 Battery,,High Voltage Lithium-Ion Phosphate Battery Storage System,High Voltage Lithium-Ion Phosphate Battery Storage System,,,,,,,,687,610,True,lossless,True
+70,BAT-070,Part1,High Voltage Lithium-Ion Phosphate Battery Storage System.pdf,batteries,Batteries,LiFePO4 Battery,,High Voltage Lithium-Ion Phosphate Battery Storage System,High Voltage Lithium-Ion Phosphate Battery Storage System,,,,15kWh,,,Built-in BMS;LiFePO4,687,610,True,lossless,True
 71,BAT-071,Part1,RT-B Series LiFePO₄ Battery（20260331）.pdf,batteries,Batteries,LiFePO4 Battery,,RT-B,RT-B Series LiFePO₄ Battery（20260331）,,,100Ah,5kWh,21.6/22.4/25.6/28.8V,,LiFePO4;Built-in BMS;WiFi Monitoring;Bluetooth,984,1246,False,lossless,True
 72,BAT-072,Part1,Wall Mounted LiFePO₄ Battery RTLB-25.6V（100&150&200Ah）.pdf,batteries,Batteries,LiFePO4 Battery,,Wall Mounted LiFePO₄ Battery RTLB-25.6V（100&150&200Ah）,Wall Mounted LiFePO₄ Battery RTLB-25.6V（100&150&200Ah）,,,150-200Ah,,25.6V,,LiFePO4,822,962,True,lossless,True
 73,INV-073,Part1,RT-MI800 Solar Microinverter.pdf,inverters,Inverters,Other Inverter,,RT-MI800,RT-MI800 Solar Microinverter,,,,,,,WiFi Monitoring,1776,572,True,lossless,True
 74,INV-074,Part1,Solar Pump Inverter.pdf,inverters,Inverters,Other Inverter,,Solar Pump Inverter,Solar Pump Inverter,,,,,,,,747,966,True,lossless,True
-75,INV-075,Part1,RT-G-1P（2-6kW）.pdf,inverters,Inverters,Grid-Tied Inverter,,RT-G-1P,RT-G-1P（2-6kW）,2000W,2-6kW,,,,350x290x120mm,WiFi Monitoring;Bluetooth,1903,2038,False,lossless,True
+75,INV-075,Part1,RT-G-1P（2-6kW）.pdf,inverters,Inverters,Grid-Tied Inverter,,RT-G-1P,RT-G-1P（2-6kW）,2000W,2-6kW,,,,350x290x120mm,Bluetooth;IP65;WiFi Monitoring,1903,2038,False,lossless,True
 76,INV-076,Part1,RT-G-3P（3-12kW）.pdf,inverters,Inverters,Grid-Tied Inverter,,RT-G-3P,RT-G-3P（3-12kW）,,3-12kW,,,,,,1708,2270,False,lossless,False
 77,INV-077,Part1,RT-HY Series 3.6&4.2&6.2kW.pdf,inverters,Inverters,Hybrid Inverter,,RT-HY,RT-HY Series 3.6&4.2&6.2kW,,6.2kW,,,,,,508,665,True,lossless,False
 78,INV-078,Part1,RT-R Series Energy Storage Inverter（8-10kW）.pdf,inverters,Inverters,Hybrid Inverter,,RT-R,RT-R Series Energy Storage Inverter（8-10kW）,,8-10kW,,,,,,500,920,True,lossless,False
 79,INV-079,Part1,RT-T Series（30-60kW）.pdf,inverters,Inverters,Hybrid Inverter,,RT-T,RT-T Series（30-60kW）,,30-60kW,,,,,WiFi Monitoring,390,531,True,lossless,True
 80,INV-080,Part1,RT2012TE & RT3024TE.pdf,inverters,Inverters,Hybrid Inverter,,RT2012TE,RT2012TE & RT3024TE,,,,,,,,528,638,True,lossless,False
-81,INV-081,Part1,RT3024TA-Pro & RT3624TA-Pro & RT5548TA-Pro & RT6248TA-Pro & RT11048TA-Pro.pdf,inverters,Inverters,Hybrid Inverter,,RT3024TA-Pro,RT3024TA-Pro & RT3624TA-Pro & RT5548TA-Pro & RT6248TA-Pro & RT11048TA-Pro,,3-6kW,,,,,Built-in BMS,635,1144,False,lossless,True
+81,INV-081,Part1,RT3024TA-Pro & RT3624TA-Pro & RT5548TA-Pro & RT6248TA-Pro & RT11048TA-Pro.pdf,inverters,Inverters,Hybrid Inverter,,RT3024TA-Pro,RT3024TA-Pro & RT3624TA-Pro & RT5548TA-Pro & RT6248TA-Pro & RT11048TA-Pro,3000W,3-6kW,,,,,Built-in BMS,635,1144,False,lossless,True
 82,INV-082,Part1,RT-ES Series（2.0-3.2kW）.pdf,inverters,Inverters,Off-Grid Inverter,,RT-ES,RT-ES Series（2.0-3.2kW）,,2.0-3.2kW,,,,,,488,626,True,lossless,False
 83,INV-083,Part1,RT-ES-US Series（800-1600W）.pdf,inverters,Inverters,Off-Grid Inverter,,RT-ES-US,RT-ES-US Series（800-1600W）,800-1600W,,,,,,Built-in BMS;WiFi Monitoring,1100,2121,False,lossless,True
-84,INV-084,Part1,RT-K Series（3.6-6kw）.pdf,inverters,Inverters,Off-Grid Inverter,,RT-K,RT-K Series（3.6-6kw）,,3.6-6kW,,,,,,670,685,True,lossless,False
+84,INV-084,Part1,RT-K Series（3.6-6kw）.pdf,inverters,Inverters,Off-Grid Inverter,,RT-K,RT-K Series（3.6-6kw）,4000W,3.6-6kW,,,,,Bluetooth;LiFePO4;WiFi Monitoring,670,685,True,lossless,True
 85,ESS-085,Part2,HH10KS.pdf,ess,Energy Storage System (ESS),,,HH10KS,HH10KS,,,,5.12kWh,,416x204x580mm,LiFePO4;WiFi Monitoring,410,480,True,lossless,True
-86,ESS-086,Part2,SmartCube ESS Series RTHY(80~125)KWP3-RTLB(197~233)kWh.pdf,ess,Energy Storage System (ESS),,,SmartCube,SmartCube ESS Series RTHY(80~125)KWP3-RTLB(197~233)kWh,,,,17.92kWh,,,LiFePO4;Built-in BMS,507,1059,False,lossless,True
+86,ESS-086,Part2,SmartCube ESS Series RTHY(80~125)KWP3-RTLB(197~233)kWh.pdf,ess,Energy Storage System (ESS),,,SmartCube,SmartCube ESS Series RTHY(80~125)KWP3-RTLB(197~233)kWh,,,,17.92kWh,,635x1100x330mm,Built-in BMS;IP65;LiFePO4,507,1059,False,lossless,True
 87,SP-087,Part2,RT7I-M 435-460W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT7I-M,RT7I-M 435-460W,435-460W,,,,,,,8384,1507,False,lossless,True
-88,SP-088,Part2,RT7K-M-FB FULL BLACK 355-380W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT7K-M-FB,RT7K-M-FB FULL BLACK 355-380W,355-380W,,,,,,Full Black,5356,914,True,lossless,True
+88,SP-088,Part2,RT7K-M-FB FULL BLACK 355-380W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT7K-M-FB,RT7K-M-FB FULL BLACK 355-380W,355-380W,,,,,,Full Black;IP67,5356,914,True,lossless,True
 89,SP-089,Part2,RT7V-M 300-325W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT7V-M,RT7V-M 300-325W,300-325W,,,,,,,4191,1752,False,lossless,True
 90,SP-090,Part2,RT8H-M 480-505W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8H-M,RT8H-M 480-505W,480-505W,,,,,,,4722,787,True,lossless,True
 91,SP-091,Part2,RT8H-M 535-560W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8H-M,RT8H-M 535-560W,535-560W,,,,,,,4371,478,True,lossless,True
 92,SP-092,Part2,RT8H-M-DG 600-635W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8H-M-DG,RT8H-M-DG 600-635W,600-635W,,,,,,TOPCon;Dual Glass,9452,2507,False,lossless,True
 93,SP-093,Part2,RT8H-M-DG Black Frame 595-630W(1).pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8H-M-DG,RT8H-M-DG Black Frame 595-630W(1),595-630W,,,,,,TOPCon;Black Frame;Dual Glass,9472,2508,False,lossless,True
 94,SP-094,Part2,RT8H-M-DG Black Frame 595-630W(2).pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8H-M-DG,RT8H-M-DG Black Frame 595-630W(2),595-630W,,,,,,TOPCon;Black Frame;Dual Glass,9624,2597,False,lossless,True
-95,SP-095,Part2,RT8H-M-DG TOPCON 510-535W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8H-M-DG,RT8H-M-DG TOPCON 510-535W,510-535W,,,,,,TOPCon;Dual Glass,11863,2686,False,lossless,True
+95,SP-095,Part2,RT8H-M-DG TOPCON 510-535W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8H-M-DG,RT8H-M-DG TOPCON 510-535W,510-535W,,,,,,Bifacial;Dual Glass;TOPCon,11863,2686,False,lossless,True
 96,SP-096,Part2,RT8I-M 210x182mm 430-455W 1762x1134x30 35mm.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8I-M,RT8I-M 210x182mm 430-455W 1762x1134x30 35mm,430-455W,,,,,,TOPCon,23084,3364,False,lossless,True
 97,SP-097,Part2,RT8I-M TOPCON 565-590W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8I-M,RT8I-M TOPCON 565-590W,565-590W,,,,,,TOPCon,5850,820,True,lossless,True
 98,SP-098,Part2,RT8I-M-BD 550-560W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8I-M-BD,RT8I-M-BD 550-560W,550-560W,,,,,,TOPCon;Bifacial,10164,3001,False,lossless,True
 99,SP-099,Part2,RT8I-M-BD 560-585W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8I-M-BD,RT8I-M-BD 560-585W,560-585W,,,,,,TOPCon;Bifacial,10930,2375,False,lossless,True
 100,SP-100,Part2,RT8I-M-DG TOPCON 560-585W (1).pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8I-M-DG,RT8I-M-DG TOPCON 560-585W (1),560-585W,,,,,,TOPCon;Bifacial;Dual Glass,10338,2386,False,lossless,True
 101,SP-101,Part2,RT8I-M-FB 530-580W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8I-M-FB,RT8I-M-FB 530-580W,530-580W,,,,,,Full Black,7648,1377,False,lossless,True
-102,SP-102,Part2,RT8K-M-DG 440-465W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8K-M-DG,RT8K-M-DG 440-465W,440-465W,,,,,,Dual Glass,8355,1581,False,lossless,True
+102,SP-102,Part2,RT8K-M-DG 440-465W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8K-M-DG,RT8K-M-DG 440-465W,440-465W,,,,,,Bifacial;Dual Glass,8355,1581,False,lossless,True
 103,SP-103,Part2,RT8K-M-FB TOPCON 440-460W 1903x1134x30-35mm.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8K-M-FB,RT8K-M-FB TOPCON 440-460W 1903x1134x30-35mm,440-460W,,,,,,TOPCon;Full Black,8128,1530,False,lossless,True
 104,SP-104,Part2,RT8V-M 390-415W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8V-M,RT8V-M 390-415W,390-415W,,,,,,,4520,733,True,lossless,True
 105,SP-105,Part2,RT8V-M TOPCON BLACK FRAME 420-435W .pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8V-M,RT8V-M TOPCON BLACK FRAME 420-435W ,420-435W,,,,,,TOPCon;Black Frame,5033,995,False,lossless,True
 106,SP-106,Part2,RT8V-M TOPCON Black Frame 490-515W 1961x1134x30.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8V-M,RT8V-M TOPCON Black Frame 490-515W 1961x1134x30,490-515W,,,,,,TOPCon;Black Frame,8105,1364,False,lossless,True
 107,SP-107,Part2,RT8V-M-BD TOPCON 490-515W 1961x1134x30.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8V-M-BD,RT8V-M-BD TOPCON 490-515W 1961x1134x30,490-515W,,,,,,TOPCon;Bifacial,8888,1766,False,lossless,True
-108,SP-108,Part2,RT8V-M-DG 390-415W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8V-M-DG,RT8V-M-DG 390-415W,390-415W,,,,,,Dual Glass,8690,1768,False,lossless,True
+108,SP-108,Part2,RT8V-M-DG 390-415W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8V-M-DG,RT8V-M-DG 390-415W,390-415W,,,,,,Bifacial;Dual Glass,8690,1768,False,lossless,True
 109,SP-109,Part2,RT8V-M-DG TOPCON 430-460W 1762x1134x30-35mm.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8V-M-DG,RT8V-M-DG TOPCON 430-460W 1762x1134x30-35mm,430-460W,,,,,,TOPCon;Dual Glass,8721,1707,False,lossless,True
 110,SP-110,Part2,RT8V-M-DG TOPCON 490-500W 1961x1134x30.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8V-M-DG,RT8V-M-DG TOPCON 490-500W 1961x1134x30,490-500W,,,,,,TOPCon;Dual Glass,13592,2938,False,lossless,True
 111,SP-111,Part2,RT8X-M-DG.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT8X-M-DG,RT8X-M-DG,430-460W,,,,,,TOPCon;Dual Glass,7877,1429,False,lossless,True
@@ -117,18 +117,18 @@ idx,sku,zip,filename,category,category_en,subcategory,panel_family,model,title_r
 116,SP-116,Part2,RT9H-M-BD 675-700W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT9H-M-BD,RT9H-M-BD 675-700W,675-700W,,,,,,TOPCon;Bifacial,9657,3082,False,lossless,True
 117,SP-117,Part2,RT9H-M-DG 725-750W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT9H-M-DG,RT9H-M-DG 725-750W,725-750W,,,,,,TOPCon;Bifacial;Dual Glass,10968,3381,False,lossless,True
 118,SP-118,Part2,RT9K-M-DG 625-645W.pdf,solar_panels,Solar Panels,,Mono series (RT6S/7/8/9),RT9K-M-DG,RT9K-M-DG 625-645W,625-645W,,,,,,Dual Glass,10696,2522,False,lossless,True
-119,SP-119,Part2,RTM005M.pdf,solar_panels,Solar Panels,,RTM small panel,RTM005M,RTM005M,5W,,,,,,,6442,1059,False,lossless,True
-120,SP-120,Part2,RTM020M 78x53.pdf,solar_panels,Solar Panels,,RTM small panel,RTM020M,RTM020M 78x53,20W,,,,,,,3990,493,True,lossless,True
-121,SP-121,Part2,RTM030M 105x52.5.pdf,solar_panels,Solar Panels,,RTM small panel,RTM030M,RTM030M 105x52.5,30W,,,,,,,10479,1203,False,lossless,True
-122,SP-122,Part2,RTM045M.pdf,solar_panels,Solar Panels,,RTM small panel,RTM045M,RTM045M,45W,,,,,,,6027,1582,False,lossless,True
-123,SP-123,Part2,RTM050M 210x42.pdf,solar_panels,Solar Panels,,RTM small panel,RTM050M,RTM050M 210x42,50W,,,,,,,10810,1609,False,lossless,True
-124,SP-124,Part2,RTM060M 210x42.pdf,solar_panels,Solar Panels,,RTM small panel,RTM060M,RTM060M 210x42,60W,,,,,,,17025,2280,False,lossless,True
-125,SP-125,Part2,RTM060M 210电池片(1).pdf,solar_panels,Solar Panels,,RTM small panel,RTM060M,RTM060M 210电池片(1),60W,,,,,,,15685,2471,False,lossless,True
+119,SP-119,Part2,RTM005M.pdf,solar_panels,Solar Panels,,RTM small panel,RTM005M,RTM005M,1000W,,,,,,IP65;IP67,6442,1059,False,lossless,True
+120,SP-120,Part2,RTM020M 78x53.pdf,solar_panels,Solar Panels,,RTM small panel,RTM020M,RTM020M 78x53,20W,,,,,,IP65;IP67,3990,493,True,lossless,True
+121,SP-121,Part2,RTM030M 105x52.5.pdf,solar_panels,Solar Panels,,RTM small panel,RTM030M,RTM030M 105x52.5,30W,,,,,,IP65;IP67,10479,1203,False,lossless,True
+122,SP-122,Part2,RTM045M.pdf,solar_panels,Solar Panels,,RTM small panel,RTM045M,RTM045M,45W,,,,,,IP65;IP67,6027,1582,False,lossless,True
+123,SP-123,Part2,RTM050M 210x42.pdf,solar_panels,Solar Panels,,RTM small panel,RTM050M,RTM050M 210x42,50W,,,,,,IP65;IP67,10810,1609,False,lossless,True
+124,SP-124,Part2,RTM060M 210x42.pdf,solar_panels,Solar Panels,,RTM small panel,RTM060M,RTM060M 210x42,60W,,,,,,IP65;IP67,17025,2280,False,lossless,True
+125,SP-125,Part2,RTM060M 210电池片(1).pdf,solar_panels,Solar Panels,,RTM small panel,RTM060M,RTM060M 210电池片(1),60W,,,,,,IP65;IP67,15685,2471,False,lossless,True
 126,SP-126,Part2,RTM100-120M 1020x580x25mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM100-120M,RTM100-120M 1020x580x25mm,120W,,,,,1020x580x25mm,TOPCon,2207,813,True,lossless,True
 127,SP-127,Part2,RTM140M 1200x580x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM140M,RTM140M 1200x580x30mm,140W,,,,,1200x580x30mm,,7535,1178,False,lossless,True
 128,SP-128,Part2,RTM150M 1230x580x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM150M,RTM150M 1230x580x30mm,150W,,,,,1230x580x30mm,,7529,1178,False,lossless,True
-129,SP-129,Part2,RTM170-220M 210x130mm 1487x666x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM170-220M,RTM170-220M 210x130mm 1487x666x30mm,170-220W,,,,,1487x666x30mm,,8742,1775,False,lossless,True
-130,SP-130,Part2,RTM170M 1230x670x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM170M,RTM170M 1230x670x30mm,170W,,,,,1230x670x30mm,,21747,5349,False,lossless,True
+129,SP-129,Part2,RTM170-220M 210x130mm 1487x666x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM170-220M,RTM170-220M 210x130mm 1487x666x30mm,170-220W,,,,,1487x666x30mm,IP67,8742,1775,False,lossless,True
+130,SP-130,Part2,RTM170M 1230x670x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM170M,RTM170M 1230x670x30mm,170W,,,,,1230x670x30mm,IP65,21747,5349,False,lossless,True
 131,SP-131,Part2,RTM170M1480x640x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM170M1480x640x30mm,RTM170M1480x640x30mm,170W,,,,,1480x640x30mm,,7808,1251,False,lossless,True
 132,SP-132,Part2,RTM200-230M 1525x670x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM200-230M,RTM200-230M 1525x670x30mm,230W,,,,,1525x670x30mm,,2825,929,True,lossless,True
 133,SP-133,Part2,RTM200-230M FULL BLACK 1500x680x30mm.pdf,solar_panels,Solar Panels,,RTM small panel,RTM200-230M,RTM200-230M FULL BLACK 1500x680x30mm,230W,,,,,1500x680x30mm,Full Black,1824,674,True,lossless,True
@@ -141,12 +141,12 @@ idx,sku,zip,filename,category,category_en,subcategory,panel_family,model,title_r
 140,OTH-140,Part2,Fan.pdf,other,Other / Accessories,,,Fan,Fan,,,,,,,,1592,3896,False,lossless,False
 141,OTH-141,Part2,Freezer Refrigerator(3).pdf,other,Other / Accessories,,,Freezer Refrigerator(3),Freezer Refrigerator(3),,,,,,,,1212,3007,False,lossless,False
 142,OTH-142,Part2,LED.pdf,other,Other / Accessories,,,LED,LED,,,,,,,,800,1932,False,lossless,False
-143,OTH-143,Part2,RT Series Solar Flood Light.pdf,other,Other / Accessories,,,RT Series Solar Flood Light,RT Series Solar Flood Light,,,,,,,,801,973,True,lossless,False
+143,OTH-143,Part2,RT Series Solar Flood Light.pdf,other,Other / Accessories,,,RT Series Solar Flood Light,RT Series Solar Flood Light,,,,,,,IP65,801,973,True,lossless,True
 144,OTH-144,Part2,Solar Fan.pdf,other,Other / Accessories,,,Solar Fan,Solar Fan,,,,,,,,968,1256,False,lossless,False
-145,OTH-145,Part2,Solar Street Light.pdf,other,Other / Accessories,,,Solar Street Light,Solar Street Light,,,,,,,,705,1279,False,lossless,False
-146,CTRL-146,Part2,RT-MRL Series.pdf,charge_controllers,Charge Controllers,MPPT Controller,,RT-MRL,RT-MRL Series,,,,,,,Bluetooth,333,357,True,lossless,True
-147,CTRL-147,Part2,RTAT Series.pdf,charge_controllers,Charge Controllers,PWM Controller,,RTAT,RTAT Series,,,,,,,,468,367,True,lossless,True
-148,CTRL-148,Part2,RTCT Series.pdf,charge_controllers,Charge Controllers,PWM Controller,,RTCT,RTCT Series,,,,,,,,425,478,True,lossless,True
+145,OTH-145,Part2,Solar Street Light.pdf,other,Other / Accessories,,,Solar Street Light,Solar Street Light,,,,,,,IP65,705,1279,False,lossless,True
+146,CTRL-146,Part2,RT-MRL Series.pdf,charge_controllers,Charge Controllers,MPPT Controller,,RT-MRL,RT-MRL Series,,,10-60A,,12V/24V,,Bluetooth,333,357,True,lossless,True
+147,CTRL-147,Part2,RTAT Series.pdf,charge_controllers,Charge Controllers,PWM Controller,,RTAT,RTAT Series,,,10-50A,,12V / 24V,,,468,367,True,lossless,True
+148,CTRL-148,Part2,RTCT Series.pdf,charge_controllers,Charge Controllers,PWM Controller,,RTCT,RTCT Series,,,2-60A,,12V/24V /48V,161x91x35mm,,425,478,True,lossless,True
 149,BAT-149,Part2,RF12-18A.pdf,batteries,Batteries,AGM Battery,,RF12-18A,RF12-18A,,,18Ah,,12V,,,1163,1946,False,lossless,False
 150,BAT-150,Part2,RF12-200A.pdf,batteries,Batteries,AGM Battery,,RF12-200A,RF12-200A,,,200Ah,,12/60/65/70V,,,1030,1132,False,lossless,True
 151,BAT-151,Part2,RF12-250A.pdf,batteries,Batteries,AGM Battery,,RF12-250A,RF12-250A,,,250Ah,,12/60/65/70V,,,681,797,True,lossless,True
@@ -162,7 +162,7 @@ idx,sku,zip,filename,category,category_en,subcategory,panel_family,model,title_r
 161,BAT-161,Part2,Stackable LiFePO₄ Battery 51.2V 5-30kWh.pdf,batteries,Batteries,LiFePO4 Battery,,Stackable,Stackable LiFePO₄ Battery 51.2V 5-30kWh,,,200Ah,5-30kWh,51.2V,,LiFePO4;Built-in BMS,1744,516,True,lossless,True
 162,BAT-162,Part2,Wall Mounted LiFePO₄ Battery RTLB-51.2V（100&150&200&300Ah）.pdf,batteries,Batteries,LiFePO4 Battery,,Wall Mounted LiFePO₄ Battery RTLB-51.2V（100&150&200&300Ah）,Wall Mounted LiFePO₄ Battery RTLB-51.2V（100&150&200&300Ah）,,,200-300Ah,,51.2V,,LiFePO4,869,1002,False,lossless,True
 163,INV-163,Part2,RT-AT Series Power Inverter.pdf,inverters,Inverters,Other Inverter,,RT-AT,RT-AT Series Power Inverter,,,,,,,,1686,3578,False,lossless,True
-164,INV-164,Part2,RT-120CL-M0.pdf,inverters,Inverters,Grid-Tied Inverter,,RT-120CL-M0,RT-120CL-M0,,,,,,,WiFi Monitoring,1046,1818,False,lossless,True
+164,INV-164,Part2,RT-120CL-M0.pdf,inverters,Inverters,Grid-Tied Inverter,,RT-120CL-M0,RT-120CL-M0,,,,,,,Bluetooth;WiFi Monitoring,1046,1818,False,lossless,True
 165,INV-165,Part2,RT-HY Series 8.2&10.2kW.pdf,inverters,Inverters,Hybrid Inverter,,RT-HY,RT-HY Series 8.2&10.2kW,,10.2kW,,,,,,656,1007,False,lossless,False
 166,INV-166,Part2,RT-I65 Series（3-6kW）.pdf,inverters,Inverters,Hybrid Inverter,,RT-I65,RT-I65 Series（3-6kW）,,3-6kW,,,,,WiFi Monitoring,385,968,True,lossless,True
 167,INV-167,Part2,RT-LF 1212T-P2.pdf,inverters,Inverters,Hybrid Inverter,,RT-LF,RT-LF 1212T-P2,1200W,,,,,325x263x133mm,,600,1083,False,lossless,True
