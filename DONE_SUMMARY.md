@@ -59,11 +59,27 @@ Also updated the general FAQ seed text (`data/seeds/faqs_en.txt` / `faqs_fr.txt`
 - Static file serving confirmed for both datasheets and product images.
 - Your existing 15 conversations and all other tables were untouched — I only dropped/recreated the (empty, 0-row) `products` table, with an explicit safety check and your confirmation first.
 
+## 6. Follow-up round (post-push fixes)
+
+Everything below was found and fixed in a second pass, after the first push, going through the open-issues list one item at a time:
+
+- **`.dockerignore`** now excludes `static/datasheets/` and `static/product_images/` — the Docker build context dropped from ~306MB back to ~1.1MB. Tradeoff (explicitly accepted): datasheet/image download links will **404 in the deployed container** until these are served from separate storage. They still exist in git and work fine when running locally.
+- **`render.yaml`** name/plan corrected to match the real live service (`rest-solar-agent`, free plan) — was still describing a stale `rest-solar-ai` / `starter` config. Docs-accuracy fix only; the dashboard is the actual deploy config source.
+- **Git LFS**: considered and declined — the 306MB is already in plain git history across two pushed commits; migrating now would need a history rewrite + force-push. Left as-is.
+- **Admin product list bug**: the "All" filter tab showed a blank count instead of the total (169) whenever a category filter was active. Fixed.
+- **Certification-badge photos**: 78 solar panel datasheets had a shared TÜV/certification badge picked as the "product photo" instead of an actual panel photo (the badge was often the largest embedded image on the page). Found via perceptual-hash clustering across all 169 extracted photos, fixed for 66 panels with a real distinct photo, correctly blanked (no photo, rather than a wrong one) for 11 panels whose PDF only had badge-sized images.
+- **Missing charge-controller specs**: root cause was that **164/169 catalog PDFs are multi-page and the original extraction only read page 1**. Re-extracted text from every page for all 169 files and re-ran field parsing. All 6 charge controllers now have real current-rating (2–100A) and system-voltage data; smaller improvements landed across panels/batteries/ESS too (dimensions, wattage, voltage, feature tags). One controller (MPK6) has no selectable text on any page — recovered its specs via Ghostscript-rasterize + tesseract OCR.
+- Verified live after each fix (browser screenshots for the admin UI, `curl` chat requests for the data fixes) and re-ran the full test suite (64/64) before each commit.
+- Local admin test account used for browser verification was deleted immediately after and the DB file reverted via `git checkout` before any commit — no test credentials were ever committed.
+- All of the above is **pushed** to `origin/phase-2-build` (commits `022ba0d`, `1f08063`, `411c29b`, `da80855`), which should have triggered Render auto-deploy — check the Render dashboard build logs to confirm it built cleanly with the smaller image.
+
 ## Things to decide / know about
 
-1. **Repo size**: the new `static/datasheets/` (290MB, lossless) + `static/product_images/` (16MB) add ~306MB of binary files. That's substantial for a plain git repo (and for Render's free-tier git-based deploys). Consider Git LFS or moving datasheets to object storage (S3/R2) — I didn't want to make that infrastructure call unilaterally. Committed as regular git objects for now, per your instruction.
+1. **Repo size**: `static/datasheets/` (290MB, lossless) + `static/product_images/` (16MB) ≈ 306MB of binary files are in git history (not in the Docker image, see above). Consider Git LFS or object storage later if this becomes painful — declined for now per your instruction.
 2. **Pre-existing uncommitted work** in `app/llm/client.py` (streaming tool-call rework, noted in earlier sessions) is still there and untouched by me — separate from this catalog work.
 3. **`app/rag/` (ChromaDB + embedder) is intentionally not used at runtime** — see section 4. Don't re-wire it into `orchestrator.py` without also re-adding `torch`/`sentence-transformers`/`chromadb` to `requirements.txt` AND upgrading past the 512MB free tier, or it will crash/fail to boot on Render again.
+4. **Datasheet/image download links 404 on the deployed site** until you set up separate hosting for `static/datasheets/` and `static/product_images/` (S3/R2, a Render disk, etc.) — see the `.dockerignore` note above. They work fine locally.
+5. **Not fully perfect data**: a handful of "Series" overview PDFs (2 batteries, 1 ESS) still have a blank field or two where the source PDF genuinely has no extractable number for that field even across all pages/OCR attempts — the PDF itself is still fully downloadable and correct, just not 100% machine-parsed.
 
 ## Files changed/added
 ```
