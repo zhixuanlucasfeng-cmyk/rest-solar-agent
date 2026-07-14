@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, Form, Depends, Response, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
 from app.db.session import get_db
 from app.db.models import AdminUser, Conversation, Message, Rule, Product, Order, Ticket
 from app.admin.auth import verify_password, create_access_token, hash_password
@@ -145,13 +145,15 @@ async def products_page(
     result = await db.execute(stmt)
     products = result.scalars().all()
 
+    total_count = await db.scalar(select(func.count()).select_from(Product))
+
     cats_result = await db.execute(select(Product.category).distinct())
     categories = sorted(c for (c,) in cats_result.all() if c)
 
     return templates.TemplateResponse(
         request=request, name="admin/products.html",
         context={
-            "current_user": current_user, "products": products,
+            "current_user": current_user, "products": products, "total_count": total_count,
             "categories": categories, "selected_category": category,
         },
     )

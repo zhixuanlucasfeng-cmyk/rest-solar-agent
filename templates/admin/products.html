@@ -16,7 +16,7 @@
 <div class="flex gap-2 mb-4 text-sm flex-wrap">
   <a href="/admin/products"
      class="px-3 py-1 rounded-full {{ 'bg-blue-800 text-white' if not selected_category else 'bg-white border' }}">
-     All ({{ products|length if not selected_category else '' }})
+     All ({{ total_count }})
   </a>
   {% for c in categories %}
   <a href="/admin/products?category={{ c }}"
