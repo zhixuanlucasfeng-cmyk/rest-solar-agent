@@ -137,12 +137,23 @@ async def delete_rule(
 async def products_page(
     request: Request, db: AsyncSession = Depends(get_db),
     current_user: AdminUser = Depends(get_current_admin),
+    category: str | None = None,
 ):
-    result = await db.execute(select(Product))
+    stmt = select(Product).order_by(Product.category, Product.sku)
+    if category:
+        stmt = stmt.where(Product.category == category)
+    result = await db.execute(stmt)
     products = result.scalars().all()
+
+    cats_result = await db.execute(select(Product.category).distinct())
+    categories = sorted(c for (c,) in cats_result.all() if c)
+
     return templates.TemplateResponse(
         request=request, name="admin/products.html",
-        context={"current_user": current_user, "products": products},
+        context={
+            "current_user": current_user, "products": products,
+            "categories": categories, "selected_category": category,
+        },
     )
 
 
@@ -150,7 +161,7 @@ async def products_page(
 async def create_product(
     request: Request,
     name: str = Form(...), sku: str = Form(...),
-    price_cny: float = Form(...), price_xaf: float = Form(...),
+    price_cny: float = Form(None), price_xaf: float = Form(None),
     duty_rate: float = Form(0.30), vat_rate: float = Form(0.1925),
     weight_kg: float = Form(None), stock: int = Form(0),
     db: AsyncSession = Depends(get_db),

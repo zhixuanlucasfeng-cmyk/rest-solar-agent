@@ -36,11 +36,7 @@ async def _make_llm_tool_response(tool_name: str, args: dict, call_id: str = "ca
 
 
 @patch("app.agent.orchestrator.chat_complete")
-@patch("app.agent.orchestrator.query", return_value=[
-    {"text": "We sell panels from 50W to 550W.", "distance": 0.2, "metadata": {}}
-])
-@patch("app.agent.orchestrator.embed", return_value=[0.1] * 384)
-async def test_plain_text_response(mock_embed, mock_query, mock_llm, db_with_rules):
+async def test_plain_text_response(mock_llm, db_with_rules):
     mock_llm.return_value = await _make_llm_text_response("We sell 50W to 550W panels.")
     result = await run("What panels do you sell?", "session-1", db_with_rules)
     assert result["reply"] == "We sell 50W to 550W panels."
@@ -48,9 +44,7 @@ async def test_plain_text_response(mock_embed, mock_query, mock_llm, db_with_rul
 
 
 @patch("app.agent.orchestrator.chat_complete")
-@patch("app.agent.orchestrator.query", return_value=[])
-@patch("app.agent.orchestrator.embed", return_value=[0.1] * 384)
-async def test_tool_call_currency(mock_embed, mock_query, mock_llm, db_with_rules):
+async def test_tool_call_currency(mock_llm, db_with_rules):
     tool_resp = await _make_llm_tool_response(
         "currency_convert",
         {"amount": 500, "from_currency": "CNY", "to_currency": "XAF"},
@@ -64,11 +58,7 @@ async def test_tool_call_currency(mock_embed, mock_query, mock_llm, db_with_rule
 
 
 @patch("app.agent.orchestrator.chat_complete")
-@patch("app.agent.orchestrator.query", return_value=[
-    {"text": "Nous vendons des panneaux de 50W à 550W.", "distance": 0.3, "metadata": {}}
-])
-@patch("app.agent.orchestrator.embed", return_value=[0.1] * 384)
-async def test_french_input_detected(mock_embed, mock_query, mock_llm, db_with_rules):
+async def test_french_input_detected(mock_llm, db_with_rules):
     mock_llm.return_value = await _make_llm_text_response("Nous vendons des panneaux solaires.")
     result = await run("Quels panneaux vendez-vous ?", "session-3", db_with_rules)
     assert result["language"] == "fr"

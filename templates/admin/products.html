@@ -2,27 +2,79 @@
 {% block title %}Products{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">Products</h1>
+
 <form action="/admin/products" method="post" class="bg-white rounded shadow p-4 mb-6 grid grid-cols-3 gap-3 max-w-3xl">
   <input name="name" placeholder="Name" required class="border rounded px-3 py-2 text-sm col-span-2">
   <input name="sku" placeholder="SKU" required class="border rounded px-3 py-2 text-sm">
-  <input name="price_cny" type="number" step="0.01" placeholder="Price CNY" required class="border rounded px-3 py-2 text-sm">
-  <input name="price_xaf" type="number" step="0.01" placeholder="Price XAF" required class="border rounded px-3 py-2 text-sm">
+  <input name="price_cny" type="number" step="0.01" placeholder="Price CNY (optional)" class="border rounded px-3 py-2 text-sm">
+  <input name="price_xaf" type="number" step="0.01" placeholder="Price XAF (optional)" class="border rounded px-3 py-2 text-sm">
   <input name="weight_kg" type="number" step="0.01" placeholder="Weight (kg)" class="border rounded px-3 py-2 text-sm">
   <input name="stock" type="number" placeholder="Stock" value="0" class="border rounded px-3 py-2 text-sm">
   <button type="submit" class="bg-blue-800 text-white py-2 rounded text-sm col-span-3">Add Product</button>
 </form>
+
+<div class="flex gap-2 mb-4 text-sm flex-wrap">
+  <a href="/admin/products"
+     class="px-3 py-1 rounded-full {{ 'bg-blue-800 text-white' if not selected_category else 'bg-white border' }}">
+     All ({{ products|length if not selected_category else '' }})
+  </a>
+  {% for c in categories %}
+  <a href="/admin/products?category={{ c }}"
+     class="px-3 py-1 rounded-full {{ 'bg-blue-800 text-white' if selected_category == c else 'bg-white border' }}">
+     {{ c }}
+  </a>
+  {% endfor %}
+</div>
+
 <table class="w-full bg-white rounded shadow text-sm">
   <thead class="bg-gray-50 text-left">
-    <tr><th class="p-3">SKU</th><th class="p-3">Name</th><th class="p-3">CNY</th><th class="p-3">XAF</th><th class="p-3">Stock</th><th class="p-3"></th></tr>
+    <tr>
+      <th class="p-3"></th>
+      <th class="p-3">SKU</th>
+      <th class="p-3">Name</th>
+      <th class="p-3">Category</th>
+      <th class="p-3">Specs</th>
+      <th class="p-3">Price</th>
+      <th class="p-3">Stock</th>
+      <th class="p-3">Datasheet</th>
+      <th class="p-3"></th>
+    </tr>
   </thead>
   <tbody>
     {% for p in products %}
-    <tr class="border-t">
+    <tr class="border-t {{ 'bg-amber-50' if p.featured else '' }}">
+      <td class="p-3">
+        {% if p.image_path %}
+        <img src="/{{ p.image_path }}" class="w-12 h-12 object-cover rounded border" loading="lazy">
+        {% endif %}
+      </td>
       <td class="p-3 font-mono text-xs">{{ p.sku }}</td>
-      <td class="p-3">{{ p.name }}</td>
-      <td class="p-3">¥{{ "%.0f"|format(p.price_cny) }}</td>
-      <td class="p-3">{{ "%.0f"|format(p.price_xaf) }} XAF</td>
+      <td class="p-3">
+        {{ p.name }}
+        {% if p.featured %}<span class="ml-1 text-xs bg-amber-400 text-slate-900 px-1.5 py-0.5 rounded font-bold">★ Featured</span>{% endif %}
+      </td>
+      <td class="p-3 text-xs">
+        {{ p.category or '-' }}{% if p.subcategory %}<br><span class="text-gray-400">{{ p.subcategory }}</span>{% endif %}
+      </td>
+      <td class="p-3 text-xs text-gray-600">
+        {{ p.wattage or p.power_kw or '' }}
+        {% if p.capacity_ah %}{{ p.capacity_ah }}{% endif %}
+        {% if p.capacity_kwh %}{{ p.capacity_kwh }}{% endif %}
+        {% if p.voltage %} / {{ p.voltage }}{% endif %}
+      </td>
+      <td class="p-3">
+        {% if p.price_cny and p.price_xaf %}
+          ¥{{ "%.0f"|format(p.price_cny) }} / {{ "%.0f"|format(p.price_xaf) }} XAF
+        {% else %}
+          <span class="text-gray-400 italic">On request</span>
+        {% endif %}
+      </td>
       <td class="p-3">{{ p.stock }}</td>
+      <td class="p-3">
+        {% if p.datasheet_path %}
+        <a href="/{{ p.datasheet_path }}" target="_blank" class="text-blue-700 hover:underline text-xs">PDF ↓</a>
+        {% endif %}
+      </td>
       <td class="p-3">
         <form action="/admin/products/{{ p.id }}/delete" method="post" class="inline">
           <button type="submit" class="text-red-500 hover:underline text-xs">Delete</button>

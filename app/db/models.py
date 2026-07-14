@@ -49,12 +49,28 @@ class Product(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     sku: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    price_cny: Mapped[float] = mapped_column(Float, nullable=False)
-    price_xaf: Mapped[float] = mapped_column(Float, nullable=False)
+    price_cny: Mapped[float | None] = mapped_column(Float, nullable=True)
+    price_xaf: Mapped[float | None] = mapped_column(Float, nullable=True)
     duty_rate: Mapped[float] = mapped_column(Float, default=0.30)
     vat_rate: Mapped[float] = mapped_column(Float, default=0.1925)
     weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     stock: Mapped[int] = mapped_column(Integer, default=0)
+
+    # 2026 catalog fields
+    category: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
+    subcategory: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    wattage: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    power_kw: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    capacity_ah: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    capacity_kwh: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    voltage: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    dimensions: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    features: Mapped[str | None] = mapped_column(Text, nullable=True)
+    datasheet_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    image_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    featured: Mapped[bool] = mapped_column(Boolean, default=False)
+    use_cases: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class Order(Base):

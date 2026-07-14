@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.db.models import Base
 from app.tools.ticket import TicketTool
@@ -19,13 +19,12 @@ async def db_session():
 @pytest.mark.asyncio
 async def test_ticket_created(db_session):
     with patch("app.tools.ticket.send_ticket_email") as mock_task:
-        mock_task.delay = MagicMock()
         tool = TicketTool(db_session)
         result = await tool.call({"subject": "Panel broken", "body": "My panel stopped working after 2 days."})
     assert "ticket_id" in result
     assert result["status"] == "open"
     assert "confirmation" in result
-    mock_task.delay.assert_called_once()
+    mock_task.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -35,8 +34,7 @@ async def test_ticket_with_conversation_id(db_session):
     db_session.add(conv)
     await db_session.flush()
 
-    with patch("app.tools.ticket.send_ticket_email") as mock_task:
-        mock_task.delay = MagicMock()
+    with patch("app.tools.ticket.send_ticket_email"):
         tool = TicketTool(db_session)
         result = await tool.call({
             "subject": "Livraison retardée",

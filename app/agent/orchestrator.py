@@ -1,15 +1,127 @@
 import json
+import re
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.agent.language_detector import detect_language
 from app.agent.rule_engine import get_matching_rules
-from app.llm.client import chat_complete, chat_complete_stream
+from app.llm.client import chat_complete, chat_complete_stream, PendingToolCall
 from app.tools import get_tools, get_tool_map
-from app.db.models import Conversation, Message
+from app.db.models import Conversation, Message, Product
 
 HISTORY_LIMIT = 10
+CATALOG_N_RESULTS = 5
+
+# Deliberately NOT using embeddings/vector search here: torch+sentence-transformers
+# were removed from requirements.txt (see commit 8c88b34) because loading a local
+# PyTorch model added 300-400MB RAM and OOM-crashed the Render free tier on every
+# chat request. This does plain keyword matching against the `products` table
+# instead — zero extra dependencies, works within the 512MB free-tier limit.
+_USE_CASE_KEYWORDS = {
+    "home_backup": ["home", "house", "backup", "outage", "blackout", "maison", "coupure", "résidentiel", "secours"],
+    "shop_fridge": ["fridge", "freezer", "refrigerat", "shop", "cold", "congélateur", "réfrigérat", "boutique", "froid"],
+    "borehole_pump": ["pump", "borehole", "well", "water", "forage", "pompe", "puits", "eau"],
+    "street_lighting": ["street light", "streetlight", "flood light", "lighting", "lampadaire", "éclairage", "lumière"],
+    "business_ess": ["business", "commercial", "factory", "hotel", "entreprise", "usine", "hôtel", "ess", "smartcube"],
+}
+
+
+def _tokenize(text: str) -> set[str]:
+    return set(re.findall(r"[a-z0-9]+", text.lower()))
+
+
+_ABOVE_WORDS = r"above|over|more than|greater than|at least|plus de|au moins|au-dessus de"
+_BELOW_WORDS = r"below|under|less than|fewer than|moins de|en dessous de"
+_WATT_RANGE_RE = re.compile(r"(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)\s*w", re.I)
+_WATT_SINGLE_RE = re.compile(r"(\d+(?:\.\d+)?)\s*w\b", re.I)
+
+
+def _parse_watt_range(wattage_str: str | None) -> tuple[float, float] | None:
+    if not wattage_str:
+        return None
+    m = _WATT_RANGE_RE.search(wattage_str)
+    if m:
+        return float(m.group(1)), float(m.group(2))
+    m = _WATT_SINGLE_RE.search(wattage_str)
+    if m:
+        return float(m.group(1)), float(m.group(1))
+    return None
+
+
+def _parse_watt_threshold(message: str) -> tuple[str, float] | None:
+    """Detect '>500W'-style thresholds in the message: ('above'|'below', watts)."""
+    for direction, words in (("above", _ABOVE_WORDS), ("below", _BELOW_WORDS)):
+        m = re.search(rf"(?:{words})\s*(\d+(?:\.\d+)?)\s*w?\b", message, re.I)
+        if m:
+            return direction, float(m.group(1))
+    return None
+
+
+async def _retrieve_catalog_context(message: str, db: AsyncSession) -> str:
+    """Keyword-match the user's message against the products table and
+    return a compact text block for the top-scoring products, or "" if
+    nothing scores above zero."""
+    result = await db.execute(select(Product))
+    products = result.scalars().all()
+    if not products:
+        return ""
+
+    msg_lower = message.lower()
+    tokens = _tokenize(message)
+
+    matched_use_cases = {
+        tag for tag, kws in _USE_CASE_KEYWORDS.items() if any(kw in msg_lower for kw in kws)
+    }
+    watt_threshold = _parse_watt_threshold(message)
+
+    scored: list[tuple[int, Product]] = []
+    for p in products:
+        score = 0
+        haystack = " ".join(filter(None, [
+            p.model, p.category, p.subcategory, p.wattage, p.power_kw,
+            p.capacity_ah, p.capacity_kwh, p.voltage, p.features,
+        ])).lower()
+        # exact model/sku mention is a strong signal
+        if p.model and p.model.lower() in msg_lower:
+            score += 5
+        if p.sku and p.sku.lower() in msg_lower:
+            score += 5
+        haystack_tokens = _tokenize(haystack)
+        score += len(tokens & haystack_tokens)
+        if p.use_cases:
+            product_use_cases = {t.strip() for t in p.use_cases.split(",") if t.strip()}
+            score += 2 * len(matched_use_cases & product_use_cases)
+
+        if watt_threshold and score > 0:
+            direction, threshold = watt_threshold
+            watt_range = _parse_watt_range(p.wattage) or _parse_watt_range(p.power_kw)
+            if watt_range:
+                lo, hi = watt_range
+                meets = (hi >= threshold) if direction == "above" else (lo <= threshold)
+                score += 4 if meets else -4
+
+        if score > 0:
+            scored.append((score, p))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    top = scored[:CATALOG_N_RESULTS]
+    if not top:
+        return ""
+
+    lines = []
+    for _, p in top:
+        specs = ", ".join(filter(None, [
+            p.wattage, p.power_kw, p.capacity_ah, p.capacity_kwh,
+            f"voltage {p.voltage}" if p.voltage else None,
+            f"dimensions {p.dimensions}" if p.dimensions else None,
+        ]))
+        feats = f" Features: {p.features}." if p.features else ""
+        lines.append(
+            f"- {p.model} ({p.category}{'/' + p.subcategory if p.subcategory else ''}, SKU {p.sku}): "
+            f"{specs}.{feats} Price on request — datasheet available."
+        )
+    return "2026 catalog matches for this question:\n" + "\n".join(lines)
 
 _FAQ_CONTENT = """
 Q: What solar panel sizes do you sell?
@@ -88,10 +200,13 @@ async def run(message: str, session_id: str, db: AsyncSession) -> dict:
     rule_bodies = await get_matching_rules(message, db)
     rules_text = "\n".join(f"- {body}" for body in rule_bodies) if rule_bodies else "None."
 
+    catalog_context = await _retrieve_catalog_context(message, db)
+    faq_content = f"{_FAQ_CONTENT}\n\n{catalog_context}" if catalog_context else _FAQ_CONTENT
+
     system_content = _SYSTEM_TEMPLATE.format(
         reply_language="French" if lang == "fr" else "English",
         rules_text=rules_text,
-        faq_content=_FAQ_CONTENT,
+        faq_content=faq_content,
         contact_info=_CONTACT_INFO,
     )
 
@@ -124,14 +239,19 @@ async def run(message: str, session_id: str, db: AsyncSession) -> dict:
         if tool:
             tool_result = await tool.call(tool_params)
 
+            tool_call_entry = {
+                "id": tc.id,
+                "type": "function",
+                "function": {"name": tool_name, "arguments": tc.function.arguments},
+            }
+            extra_content = getattr(tc, "extra_content", None)
+            if extra_content:
+                tool_call_entry["extra_content"] = extra_content
+
             messages.append({
                 "role": "assistant",
                 "content": None,
-                "tool_calls": [{
-                    "id": tc.id,
-                    "type": "function",
-                    "function": {"name": tool_name, "arguments": tc.function.arguments},
-                }],
+                "tool_calls": [tool_call_entry],
             })
             messages.append({
                 "role": "tool",
@@ -175,10 +295,13 @@ async def run_stream(
     rule_bodies = await get_matching_rules(message, db)
     rules_text = "\n".join(f"- {body}" for body in rule_bodies) if rule_bodies else "None."
 
+    catalog_context = await _retrieve_catalog_context(message, db)
+    faq_content = f"{_FAQ_CONTENT}\n\n{catalog_context}" if catalog_context else _FAQ_CONTENT
+
     system_content = _SYSTEM_TEMPLATE.format(
         reply_language="French" if lang == "fr" else "English",
         rules_text=rules_text,
-        faq_content=_FAQ_CONTENT,
+        faq_content=faq_content,
         contact_info=_CONTACT_INFO,
     )
 
@@ -200,26 +323,43 @@ async def run_stream(
     tool_defs = [t.definition() for t in tools_list]
     tool_map = get_tool_map(db)
 
-    probe_msg = await chat_complete(messages, tools=tool_defs)
+    db.add(Message(conversation_id=conv.id, role="user", content=message))
 
-    final_messages = messages
-    if probe_msg.tool_calls:
-        tc = probe_msg.tool_calls[0]
-        tool_name = tc.function.name
-        tool_params = json.loads(tc.function.arguments)
+    # Stream directly instead of doing a separate blocking "does this need a
+    # tool?" call first — that was a full extra LLM round trip on every
+    # message, even ones that never call a tool. chat_complete_stream()
+    # streams text tokens as they arrive and only surfaces tool call(s) (as
+    # a list[PendingToolCall]) once the stream ends, so the common
+    # no-tool-call case gets its first token immediately.
+    collected_reply: list[str] = []
+    pending_calls: list[PendingToolCall] = []
+    async for item in chat_complete_stream(messages, tools=tool_defs):
+        if isinstance(item, list):
+            pending_calls = item
+        else:
+            collected_reply.append(item)
+            yield item
+
+    if pending_calls:
+        tc = pending_calls[0]
+        tool_name = tc.name
+        tool_params = json.loads(tc.arguments) if tc.arguments else {}
         tool = tool_map.get(tool_name)
         tool_result: dict = {}
         if tool:
             tool_result = await tool.call(tool_params)
+        tool_call_entry = {
+            "id": tc.id,
+            "type": "function",
+            "function": {"name": tool_name, "arguments": tc.arguments},
+        }
+        if tc.extra_content:
+            tool_call_entry["extra_content"] = tc.extra_content
         final_messages = messages + [
             {
                 "role": "assistant",
                 "content": None,
-                "tool_calls": [{
-                    "id": tc.id,
-                    "type": "function",
-                    "function": {"name": tool_name, "arguments": tc.function.arguments},
-                }],
+                "tool_calls": [tool_call_entry],
             },
             {
                 "role": "tool",
@@ -229,12 +369,10 @@ async def run_stream(
         ]
         db.add(Message(conversation_id=conv.id, role="tool", content=json.dumps(tool_result), tool_name=tool_name))
 
-    db.add(Message(conversation_id=conv.id, role="user", content=message))
-
-    collected_reply = []
-    async for token in chat_complete_stream(final_messages):
-        collected_reply.append(token)
-        yield token
+        async for token in chat_complete_stream(final_messages):
+            if isinstance(token, str):
+                collected_reply.append(token)
+                yield token
 
     full_reply = "".join(collected_reply)
     db.add(Message(conversation_id=conv.id, role="assistant", content=full_reply))
