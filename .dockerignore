@@ -9,5 +9,3 @@ __pycache__/
 data/chroma_db/
 data/chroma/
 data/sqlite/
-static/datasheets/
-static/product_images/
