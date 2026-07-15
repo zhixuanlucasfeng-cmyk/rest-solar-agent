@@ -9,6 +9,7 @@ from app.agent.rule_engine import get_matching_rules
 from app.llm.client import chat_complete, chat_complete_stream, PendingToolCall
 from app.tools import get_tools, get_tool_map
 from app.db.models import Conversation, Message, Product
+from app.agent.warranty import classify_panel_warranty
 
 HISTORY_LIMIT = 10
 CATALOG_N_RESULTS = 5
@@ -117,9 +118,18 @@ async def _retrieve_catalog_context(message: str, db: AsyncSession) -> str:
             f"dimensions {p.dimensions}" if p.dimensions else None,
         ]))
         feats = f" Features: {p.features}." if p.features else ""
+        warranty_note = ""
+        if p.category == "solar_panels":
+            w = classify_panel_warranty(p.model)
+            if w:
+                warranty_note = (
+                    f" Warranty: {w['product_years']}-year product warranty, "
+                    f"{w['performance_years']}-year performance warranty "
+                    f"({w['output_pct_en']} output guaranteed)."
+                )
         lines.append(
             f"- {p.model} ({p.category}{'/' + p.subcategory if p.subcategory else ''}, SKU {p.sku}): "
-            f"{specs}.{feats} Price on request — datasheet available."
+            f"{specs}.{feats}{warranty_note} Price on request — datasheet available."
         )
     return "2026 catalog matches for this question:\n" + "\n".join(lines)
 
