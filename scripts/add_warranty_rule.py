@@ -19,7 +19,7 @@ from app.db.models import Rule
 
 RULE = {
     "name": "panel_warranty",
-    "trigger": "warranty/guarantee/broken/defect/claim/garantie/défaut/panne/réclamation/cassé",
+    "trigger": "warranty/guarantee/broken/defect/claim/garantie/défaut/en panne/réclamation/cassé",
     "body": (
         "For solar PANEL (not battery) warranty questions: RESTAR's official "
         "policy (effective 2026-01-01) gives every panel two warranties "
