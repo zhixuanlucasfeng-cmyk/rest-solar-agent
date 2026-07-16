@@ -140,6 +140,9 @@ A: We stock monocrystalline solar panels ranging from 50W to 550W. Our most popu
 Q: What warranty do your batteries come with?
 A: Our lithium LiFePO4 batteries carry a 2-year warranty against manufacturing defects. Tubular gel batteries carry a 1-year warranty. All warranty claims must be accompanied by proof of purchase and installation documentation.
 
+Q: What warranty do RESTAR panels come with?
+A: Every RESTAR panel carries two manufacturer warranties: a product warranty (10 to 15 years against defects in material and workmanship, depending on panel type) and a performance warranty (20 to 30 years, guaranteeing 80.7% to 84.95% of rated power output). If your panel is damaged or underperforming, contact us on WhatsApp with the serial number, photos, and proof of purchase — RESTAR must be notified within 3 months of the defect being discovered. Storm, lightning, flood damage, improper installation, and unauthorized repairs are not covered.
+
 Q: Do you deliver to cities outside Douala?
 A: Yes, we deliver across Cameroon including Yaoundé, Bafoussam, Bamenda, Garoua, Maroua, Bertoua, and all major cities. Delivery times and costs vary by location. Contact us for a quote specific to your area.
 
@@ -154,6 +157,9 @@ R: Nous proposons des panneaux solaires monocristallins de 50W à 550W. Les tail
 
 Q: Quelle garantie offrez-vous sur les batteries ?
 R: Nos batteries lithium LiFePO4 bénéficient d'une garantie de 2 ans contre les défauts de fabrication. Les batteries tubulaires gel bénéficient d'une garantie d'un an. Toute demande de garantie doit être accompagnée d'un justificatif d'achat et d'une documentation d'installation.
+
+Q: Quelle garantie couvre les panneaux solaires RESTAR ?
+R: Chaque panneau RESTAR bénéficie de deux garanties du fabricant : une garantie produit (10 à 15 ans contre les défauts de matériau et de fabrication, selon le type de panneau) et une garantie de performance (20 à 30 ans, garantissant 80,7 % à 84,95 % de la puissance nominale). En cas de panneau endommagé ou sous-performant, contactez-nous sur WhatsApp avec le numéro de série, des photos et une preuve d'achat — RESTAR doit être informé dans les 3 mois suivant la découverte du défaut. Les dommages liés aux intempéries, à la foudre, aux inondations, à une installation incorrecte ou à des réparations non autorisées ne sont pas couverts.
 
 Q: Livrez-vous en dehors de Douala ?
 R: Oui, nous livrons partout au Cameroun, notamment à Yaoundé, Bafoussam, Bamenda, Garoua, Maroua, Bertoua et dans toutes les grandes villes. Les délais et frais de livraison varient selon la localisation. Contactez-nous pour un devis adapté à votre zone.
