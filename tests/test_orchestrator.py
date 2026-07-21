@@ -2,7 +2,7 @@ import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.models import Rule
+from app.db.models import Product, Rule
 from app.agent.orchestrator import run
 from app.llm.client import LLMUnavailableError
 
@@ -82,3 +82,37 @@ async def test_llm_unavailable_returns_friendly_fallback_fr(mock_llm, db_with_ru
     result = await run("Combien coûte le panneau ?", "session-5", db_with_rules)
     assert "problème de connexion" in result["reply"]
     assert result["language"] == "fr"
+
+
+@patch("app.agent.orchestrator.chat_complete")
+async def test_catalog_context_shows_real_price_when_set(mock_llm, db_with_rules):
+    """A product with price_xaf populated (scripts/apply_price_list.py) must
+    surface its actual FCFA price in the system prompt instead of the old
+    hardcoded 'Price on request' — that hardcoding was the whole reason the
+    chatbot couldn't quote prices even after they were in the DB."""
+    db_with_rules.add(Product(
+        name="RTM210M 210W", sku="SP-999-TEST", category="solar_panels",
+        model="RTM210M", wattage="210W", price_xaf=18000.0,
+    ))
+    await db_with_rules.commit()
+
+    mock_llm.return_value = await _make_llm_text_response("It costs 18,000 FCFA.")
+    await run("How much does the RTM210M 210W panel cost?", "session-6", db_with_rules)
+
+    system_content = mock_llm.call_args.args[0][0]["content"]
+    assert "18,000 FCFA" in system_content
+
+
+@patch("app.agent.orchestrator.chat_complete")
+async def test_catalog_context_falls_back_when_price_unset(mock_llm, db_with_rules):
+    db_with_rules.add(Product(
+        name="Unpriced Panel", sku="SP-998-TEST", category="solar_panels",
+        model="UnpricedPanel", wattage="999W",
+    ))
+    await db_with_rules.commit()
+
+    mock_llm.return_value = await _make_llm_text_response("Contact us for pricing.")
+    await run("How much does the UnpricedPanel 999W cost?", "session-7", db_with_rules)
+
+    system_content = mock_llm.call_args.args[0][0]["content"]
+    assert "Price on request" in system_content

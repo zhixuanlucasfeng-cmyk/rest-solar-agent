@@ -131,9 +131,14 @@ async def _retrieve_catalog_context(message: str, db: AsyncSession) -> str:
             f"dimensions {p.dimensions}" if p.dimensions else None,
         ]))
         feats = f" Features: {p.features}." if p.features else ""
+        price_bit = (
+            f"{p.price_xaf:,.0f} FCFA each (Douala, single-unit retail price)."
+            if p.price_xaf
+            else "Price on request — datasheet available."
+        )
         lines.append(
             f"- {p.model} ({p.category}{'/' + p.subcategory if p.subcategory else ''}, SKU {p.sku}): "
-            f"{specs}.{feats} Price on request — datasheet available."
+            f"{specs}.{feats} {price_bit}"
         )
     return "2026 catalog matches for this question:\n" + "\n".join(lines)
 
