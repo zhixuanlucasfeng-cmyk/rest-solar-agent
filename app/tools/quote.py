@@ -48,14 +48,19 @@ class QuoteTool(BaseTool):
         product = result.scalar_one_or_none()
         if not product:
             return {"error": f"Product with SKU '{sku}' not found"}
+        if not product.price_cny:
+            # price_cny is None for every product right now (no China
+            # ex-factory cost data has been entered) — checked before any
+            # arithmetic on it. This used to crash with "unsupported operand
+            # type(s) for *: 'NoneType' and 'int'" from a stale `== 0` check
+            # placed *after* the multiplication that needed the guard.
+            return {"error": f"Product '{product.sku}' has no price set (price_cny is not available)"}
 
         subtotal_cny = round(product.price_cny * qty, 2)
         duty_cny = round(subtotal_cny * product.duty_rate, 2)
         vat_cny = round(subtotal_cny * product.vat_rate, 2)
         weight_total = (product.weight_kg or 0.0) * qty
         shipping_cny = round(weight_total * SHIPPING_RATE_CNY_PER_KG, 2)
-        if product.price_cny == 0:
-            return {"error": f"Product '{product.sku}' has no price set (price_cny is 0)"}
         total_cny = round(subtotal_cny + duty_cny + vat_cny + shipping_cny, 2)
         total_xaf = round(total_cny * (product.price_xaf / product.price_cny), 2)
 

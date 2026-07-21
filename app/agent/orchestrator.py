@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from app.agent.language_detector import detect_language
 from app.agent.rule_engine import get_matching_rules
-from app.llm.client import chat_complete, chat_complete_stream, LLMUnavailableError, PendingToolCall
+from app.llm.client import chat_complete, chat_complete_stream, PendingToolCall
 from app.tools import get_tools, get_tool_map
 from app.db.models import Conversation, Message, Product
 
@@ -292,7 +292,13 @@ async def run(message: str, session_id: str, db: AsyncSession) -> dict:
                 final_reply = f"[Tool '{tool_name}' not available]"
         else:
             final_reply = llm_msg.content or ""
-    except LLMUnavailableError:
+    except Exception:
+        # Broad on purpose: this wraps the LLM call *and* tool execution.
+        # A bug in any one tool implementation (see app/tools/quote.py's
+        # missing-price crash, the actual cause of the live intermittent-500
+        # incident this except clause was widened to fix) must not 500 the
+        # whole /api/chat request — degrade to the same friendly message the
+        # LLM-unavailable case already used.
         final_reply = _LLM_DOWN_REPLY["fr"] if lang == "fr" else _LLM_DOWN_REPLY["en"]
 
     db.add(Message(conversation_id=conv.id, role="user", content=message))
@@ -363,7 +369,7 @@ async def run_stream(
             else:
                 collected_reply.append(item)
                 yield item
-    except LLMUnavailableError:
+    except Exception:
         if not collected_reply:
             fallback = _LLM_DOWN_REPLY["fr"] if lang == "fr" else _LLM_DOWN_REPLY["en"]
             collected_reply.append(fallback)
@@ -380,7 +386,19 @@ async def run_stream(
         tool = tool_map.get(tool_name)
         tool_result: dict = {}
         if tool:
-            tool_result = await tool.call(tool_params)
+            try:
+                tool_result = await tool.call(tool_params)
+            except Exception:
+                # Same rationale as the run() fix: a tool bug (e.g.
+                # app/tools/quote.py's missing-price crash) must not blow up
+                # the stream — degrade to the friendly fallback instead.
+                fallback = _LLM_DOWN_REPLY["fr"] if lang == "fr" else _LLM_DOWN_REPLY["en"]
+                collected_reply.append(fallback)
+                yield fallback
+                full_reply = "".join(collected_reply)
+                db.add(Message(conversation_id=conv.id, role="assistant", content=full_reply))
+                await db.commit()
+                return
         tool_call_entry = {
             "id": tc.id,
             "type": "function",
@@ -407,7 +425,7 @@ async def run_stream(
                 if isinstance(token, str):
                     collected_reply.append(token)
                     yield token
-        except LLMUnavailableError:
+        except Exception:
             if not collected_reply:
                 fallback = _LLM_DOWN_REPLY["fr"] if lang == "fr" else _LLM_DOWN_REPLY["en"]
                 collected_reply.append(fallback)

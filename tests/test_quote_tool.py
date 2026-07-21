@@ -17,6 +17,12 @@ async def db_session():
             duty_rate=0.30, vat_rate=0.1925,
             weight_kg=22.0, stock=10
         ))
+        session.add(Product(
+            name="RT8I-M 590-610W", sku="SP-012",
+            duty_rate=0.30, vat_rate=0.1925, weight_kg=25.0, stock=0,
+            # price_cny left unset (None) — the real state of all 169
+            # catalog products right now, no China ex-factory cost entered.
+        ))
         await session.commit()
         yield session
     await engine.dispose()
@@ -41,6 +47,19 @@ async def test_quote_unknown_sku(db_session):
     tool = QuoteTool(db_session)
     result = await tool.call({"sku": "UNKNOWN", "quantity": 1})
     assert "error" in result
+
+
+@pytest.mark.asyncio
+async def test_quote_product_with_no_price_cny_returns_error_not_crash(db_session):
+    """Live-incident regression: get_quote crashed with
+    "TypeError: unsupported operand type(s) for *: 'NoneType' and 'int'"
+    (500ing /api/chat) whenever the LLM called it for a product whose
+    price_cny is unset — the null-check used to run after the multiplication
+    that needed it, and only checked `== 0`, never `is None`."""
+    tool = QuoteTool(db_session)
+    result = await tool.call({"sku": "SP-012", "quantity": 1})
+    assert "error" in result
+    assert "total_cny" not in result
 
 
 def test_definition():
