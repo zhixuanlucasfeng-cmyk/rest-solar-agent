@@ -1,7 +1,7 @@
 import os
 from dataclasses import dataclass
 from typing import AsyncGenerator, Union
-from openai import AsyncOpenAI, APIError, APITimeoutError
+from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -38,7 +38,14 @@ async def chat_complete(messages: list[dict], tools: list[dict] | None = None):
         kwargs["tool_choice"] = "auto"
     try:
         response = await client.chat.completions.create(**kwargs)
-    except (APIError, APITimeoutError) as e:
+    except Exception as e:
+        # Broad on purpose: Gemini's OpenAI-compatible endpoint doesn't always
+        # shape error responses the way the openai SDK expects, so a failure
+        # here can surface as something other than openai.APIError (raw
+        # httpx errors, JSON decode errors, etc.) — narrowly catching just
+        # APIError let real failures slip through uncaught and 500 the route,
+        # which is the bug this try/except exists to fix. Scoped to only this
+        # external call, so it can't mask a bug elsewhere in the request.
         raise LLMUnavailableError(str(e)) from e
     return response.choices[0].message
 
@@ -88,7 +95,7 @@ async def chat_complete_stream(
                     extra_content = getattr(tc, "extra_content", None)
                     if extra_content:
                         slot["extra_content"] = extra_content
-    except (APIError, APITimeoutError) as e:
+    except Exception as e:
         raise LLMUnavailableError(str(e)) from e
 
     if pending:

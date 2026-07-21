@@ -79,3 +79,22 @@ async def test_chat_complete_stream_wraps_api_error():
         with pytest.raises(LLMUnavailableError):
             async for _ in chat_complete_stream([{"role": "user", "content": "hi"}]):
                 pass
+
+
+@pytest.mark.asyncio
+async def test_chat_complete_wraps_non_openai_exception():
+    """Gemini's OpenAI-compatible endpoint doesn't always shape error
+    responses the way the openai SDK expects, so a failure can surface as
+    something other than openai.APIError (a raw httpx error, a JSON decode
+    error, etc). Catching only APIError let these slip through uncaught and
+    500 the live /api/chat route — this is the actual bug, reproduced here
+    with a plain exception the narrower catch would have missed."""
+    with patch("app.llm.client.get_client") as mock_get:
+        mock_client = AsyncMock()
+        mock_client.chat.completions.create = AsyncMock(
+            side_effect=httpx.ReadTimeout("timed out")
+        )
+        mock_get.return_value = mock_client
+
+        with pytest.raises(LLMUnavailableError):
+            await chat_complete([{"role": "user", "content": "hi"}])
