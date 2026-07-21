@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Rule
 from app.agent.orchestrator import run
+from app.llm.client import LLMUnavailableError
 
 
 @pytest.fixture
@@ -61,4 +62,23 @@ async def test_tool_call_currency(mock_llm, db_with_rules):
 async def test_french_input_detected(mock_llm, db_with_rules):
     mock_llm.return_value = await _make_llm_text_response("Nous vendons des panneaux solaires.")
     result = await run("Quels panneaux vendez-vous ?", "session-3", db_with_rules)
+    assert result["language"] == "fr"
+
+
+@patch("app.agent.orchestrator.chat_complete")
+async def test_llm_unavailable_returns_friendly_fallback_en(mock_llm, db_with_rules):
+    """A transient LLM failure must produce a friendly reply with contact
+    info, not propagate and 500 the /api/chat route."""
+    mock_llm.side_effect = LLMUnavailableError("rate limited")
+    result = await run("How much is the panel?", "session-4", db_with_rules)
+    assert "trouble connecting" in result["reply"]
+    assert "681 105 611" in result["reply"]
+    assert result["language"] == "en"
+
+
+@patch("app.agent.orchestrator.chat_complete")
+async def test_llm_unavailable_returns_friendly_fallback_fr(mock_llm, db_with_rules):
+    mock_llm.side_effect = LLMUnavailableError("rate limited")
+    result = await run("Combien coûte le panneau ?", "session-5", db_with_rules)
+    assert "problème de connexion" in result["reply"]
     assert result["language"] == "fr"

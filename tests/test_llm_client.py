@@ -1,6 +1,8 @@
+import httpx
 import pytest
+from openai import APIError
 from unittest.mock import AsyncMock, patch, MagicMock
-from app.llm.client import chat_complete, get_client, LLM_MODEL
+from app.llm.client import chat_complete, chat_complete_stream, get_client, LLM_MODEL, LLMUnavailableError
 
 
 def test_llm_model_has_value():
@@ -46,3 +48,34 @@ async def test_chat_complete_passes_tools():
         result = await chat_complete([{"role": "user", "content": "hi"}], tools=tools)
         call_kwargs = mock_client.chat.completions.create.call_args.kwargs
         assert "tools" in call_kwargs
+
+
+def _fake_api_error() -> APIError:
+    request = httpx.Request("POST", "https://example.com/v1/chat/completions")
+    return APIError("rate limited", request, body=None)
+
+
+@pytest.mark.asyncio
+async def test_chat_complete_wraps_api_error():
+    """A transient provider error (timeout/rate-limit) must surface as
+    LLMUnavailableError, not bubble up raw and 500 the /api/chat route —
+    see the intermittent-500 incident this was added to fix."""
+    with patch("app.llm.client.get_client") as mock_get:
+        mock_client = AsyncMock()
+        mock_client.chat.completions.create = AsyncMock(side_effect=_fake_api_error())
+        mock_get.return_value = mock_client
+
+        with pytest.raises(LLMUnavailableError):
+            await chat_complete([{"role": "user", "content": "hi"}])
+
+
+@pytest.mark.asyncio
+async def test_chat_complete_stream_wraps_api_error():
+    with patch("app.llm.client.get_client") as mock_get:
+        mock_client = AsyncMock()
+        mock_client.chat.completions.create = AsyncMock(side_effect=_fake_api_error())
+        mock_get.return_value = mock_client
+
+        with pytest.raises(LLMUnavailableError):
+            async for _ in chat_complete_stream([{"role": "user", "content": "hi"}]):
+                pass

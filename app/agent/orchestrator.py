@@ -6,12 +6,26 @@ from sqlalchemy import select
 
 from app.agent.language_detector import detect_language
 from app.agent.rule_engine import get_matching_rules
-from app.llm.client import chat_complete, chat_complete_stream, PendingToolCall
+from app.llm.client import chat_complete, chat_complete_stream, LLMUnavailableError, PendingToolCall
 from app.tools import get_tools, get_tool_map
 from app.db.models import Conversation, Message, Product
 
 HISTORY_LIMIT = 10
 CATALOG_N_RESULTS = 5
+
+_LLM_DOWN_REPLY = {
+    "en": (
+        "Sorry, I'm having trouble connecting right now. Please try again in a "
+        "moment, or reach us directly on WhatsApp: Luc Su +237 681 105 611 "
+        "(Cameroon) or Tom Yang +86 187 0773 7002 (China)."
+    ),
+    "fr": (
+        "Désolé, je rencontre un problème de connexion en ce moment. "
+        "Réessayez dans un instant, ou contactez-nous directement sur "
+        "WhatsApp : Luc Su +237 681 105 611 (Cameroun) ou Tom Yang "
+        "+86 187 0773 7002 (Chine)."
+    ),
+}
 
 # Deliberately NOT using embeddings/vector search here: torch+sentence-transformers
 # were removed from requirements.txt (see commit 8c88b34) because loading a local
@@ -227,50 +241,54 @@ async def run(message: str, session_id: str, db: AsyncSession) -> dict:
     tools_list = get_tools(db)
     tool_defs = [t.definition() for t in tools_list]
     tool_map = get_tool_map(db)
-    llm_msg = await chat_complete(messages, tools=tool_defs)
 
     final_reply: str
-    if llm_msg.tool_calls:
-        tc = llm_msg.tool_calls[0]
-        tool_name = tc.function.name
-        tool_params = json.loads(tc.function.arguments)
+    try:
+        llm_msg = await chat_complete(messages, tools=tool_defs)
 
-        tool = tool_map.get(tool_name)
-        if tool:
-            tool_result = await tool.call(tool_params)
+        if llm_msg.tool_calls:
+            tc = llm_msg.tool_calls[0]
+            tool_name = tc.function.name
+            tool_params = json.loads(tc.function.arguments)
 
-            tool_call_entry = {
-                "id": tc.id,
-                "type": "function",
-                "function": {"name": tool_name, "arguments": tc.function.arguments},
-            }
-            extra_content = getattr(tc, "extra_content", None)
-            if extra_content:
-                tool_call_entry["extra_content"] = extra_content
+            tool = tool_map.get(tool_name)
+            if tool:
+                tool_result = await tool.call(tool_params)
 
-            messages.append({
-                "role": "assistant",
-                "content": None,
-                "tool_calls": [tool_call_entry],
-            })
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tc.id,
-                "content": json.dumps(tool_result),
-            })
-            final_msg = await chat_complete(messages)
-            final_reply = final_msg.content or ""
+                tool_call_entry = {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {"name": tool_name, "arguments": tc.function.arguments},
+                }
+                extra_content = getattr(tc, "extra_content", None)
+                if extra_content:
+                    tool_call_entry["extra_content"] = extra_content
 
-            db.add(Message(
-                conversation_id=conv.id,
-                role="tool",
-                content=json.dumps(tool_result),
-                tool_name=tool_name,
-            ))
+                messages.append({
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [tool_call_entry],
+                })
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": json.dumps(tool_result),
+                })
+                final_msg = await chat_complete(messages)
+                final_reply = final_msg.content or ""
+
+                db.add(Message(
+                    conversation_id=conv.id,
+                    role="tool",
+                    content=json.dumps(tool_result),
+                    tool_name=tool_name,
+                ))
+            else:
+                final_reply = f"[Tool '{tool_name}' not available]"
         else:
-            final_reply = f"[Tool '{tool_name}' not available]"
-    else:
-        final_reply = llm_msg.content or ""
+            final_reply = llm_msg.content or ""
+    except LLMUnavailableError:
+        final_reply = _LLM_DOWN_REPLY["fr"] if lang == "fr" else _LLM_DOWN_REPLY["en"]
 
     db.add(Message(conversation_id=conv.id, role="user", content=message))
     db.add(Message(conversation_id=conv.id, role="assistant", content=final_reply))
@@ -333,12 +351,22 @@ async def run_stream(
     # no-tool-call case gets its first token immediately.
     collected_reply: list[str] = []
     pending_calls: list[PendingToolCall] = []
-    async for item in chat_complete_stream(messages, tools=tool_defs):
-        if isinstance(item, list):
-            pending_calls = item
-        else:
-            collected_reply.append(item)
-            yield item
+    try:
+        async for item in chat_complete_stream(messages, tools=tool_defs):
+            if isinstance(item, list):
+                pending_calls = item
+            else:
+                collected_reply.append(item)
+                yield item
+    except LLMUnavailableError:
+        if not collected_reply:
+            fallback = _LLM_DOWN_REPLY["fr"] if lang == "fr" else _LLM_DOWN_REPLY["en"]
+            collected_reply.append(fallback)
+            yield fallback
+        full_reply = "".join(collected_reply)
+        db.add(Message(conversation_id=conv.id, role="assistant", content=full_reply))
+        await db.commit()
+        return
 
     if pending_calls:
         tc = pending_calls[0]
@@ -369,10 +397,16 @@ async def run_stream(
         ]
         db.add(Message(conversation_id=conv.id, role="tool", content=json.dumps(tool_result), tool_name=tool_name))
 
-        async for token in chat_complete_stream(final_messages):
-            if isinstance(token, str):
-                collected_reply.append(token)
-                yield token
+        try:
+            async for token in chat_complete_stream(final_messages):
+                if isinstance(token, str):
+                    collected_reply.append(token)
+                    yield token
+        except LLMUnavailableError:
+            if not collected_reply:
+                fallback = _LLM_DOWN_REPLY["fr"] if lang == "fr" else _LLM_DOWN_REPLY["en"]
+                collected_reply.append(fallback)
+                yield fallback
 
     full_reply = "".join(collected_reply)
     db.add(Message(conversation_id=conv.id, role="assistant", content=full_reply))

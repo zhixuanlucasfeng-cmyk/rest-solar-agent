@@ -1,7 +1,7 @@
 import os
 from dataclasses import dataclass
 from typing import AsyncGenerator, Union
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, APIError, APITimeoutError
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -9,6 +9,12 @@ load_dotenv()
 LLM_MODEL: str = os.getenv("LLM_MODEL", "google/gemini-3.1-flash-lite")
 
 _client: AsyncOpenAI | None = None
+
+
+class LLMUnavailableError(Exception):
+    """Raised when the upstream LLM call fails (timeout, rate limit, transient
+    API error) so callers can show a friendly message instead of a bare 500 —
+    see the intermittent /api/chat 500s this was added to fix."""
 
 
 def get_client() -> AsyncOpenAI:
@@ -30,7 +36,10 @@ async def chat_complete(messages: list[dict], tools: list[dict] | None = None):
     if tools:
         kwargs["tools"] = tools
         kwargs["tool_choice"] = "auto"
-    response = await client.chat.completions.create(**kwargs)
+    try:
+        response = await client.chat.completions.create(**kwargs)
+    except (APIError, APITimeoutError) as e:
+        raise LLMUnavailableError(str(e)) from e
     return response.choices[0].message
 
 
@@ -58,26 +67,29 @@ async def chat_complete_stream(
     if tools:
         kwargs["tools"] = tools
         kwargs["tool_choice"] = "auto"
-    stream = await client.chat.completions.create(**kwargs)
 
     pending: dict[int, dict] = {}
-    async for chunk in stream:
-        delta = chunk.choices[0].delta
-        if delta.content:
-            yield delta.content
-        if delta.tool_calls:
-            for tc in delta.tool_calls:
-                slot = pending.setdefault(tc.index, {"id": "", "name": "", "arguments": "", "extra_content": None})
-                if tc.id:
-                    slot["id"] = tc.id
-                if tc.function:
-                    if tc.function.name:
-                        slot["name"] = tc.function.name
-                    if tc.function.arguments:
-                        slot["arguments"] += tc.function.arguments
-                extra_content = getattr(tc, "extra_content", None)
-                if extra_content:
-                    slot["extra_content"] = extra_content
+    try:
+        stream = await client.chat.completions.create(**kwargs)
+        async for chunk in stream:
+            delta = chunk.choices[0].delta
+            if delta.content:
+                yield delta.content
+            if delta.tool_calls:
+                for tc in delta.tool_calls:
+                    slot = pending.setdefault(tc.index, {"id": "", "name": "", "arguments": "", "extra_content": None})
+                    if tc.id:
+                        slot["id"] = tc.id
+                    if tc.function:
+                        if tc.function.name:
+                            slot["name"] = tc.function.name
+                        if tc.function.arguments:
+                            slot["arguments"] += tc.function.arguments
+                    extra_content = getattr(tc, "extra_content", None)
+                    if extra_content:
+                        slot["extra_content"] = extra_content
+    except (APIError, APITimeoutError) as e:
+        raise LLMUnavailableError(str(e)) from e
 
     if pending:
         yield [PendingToolCall(**slot) for slot in pending.values()]
