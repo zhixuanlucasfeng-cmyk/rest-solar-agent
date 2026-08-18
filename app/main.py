@@ -1,16 +1,36 @@
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 
-from app.db.models import Base
+from app.db.models import Base, AdminUser
 from app.db.session import DATABASE_URL
+from app.admin.auth import hash_password
 from app.api.chat import router as chat_router
 from app.api.ws import router as ws_router
 from app.admin.routes import router as admin_router
+
+
+async def _seed_admin_user(session: AsyncSession) -> None:
+    """Create the first superadmin account from env vars if none exists yet.
+
+    Runs on every startup so the account survives Render's ephemeral disk
+    (free tier sqlite doesn't persist across redeploys without a mounted disk).
+    """
+    count = (await session.execute(select(func.count()).select_from(AdminUser))).scalar_one()
+    if count > 0:
+        return
+    email = os.getenv("ADMIN_EMAIL")
+    password = os.getenv("ADMIN_PASSWORD")
+    if not email or not password:
+        return
+    session.add(AdminUser(email=email, password_hash=hash_password(password), role="superadmin"))
+    await session.commit()
 
 
 @asynccontextmanager
@@ -18,6 +38,8 @@ async def lifespan(app: FastAPI):
     engine = create_async_engine(DATABASE_URL)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    async with AsyncSession(engine) as session:
+        await _seed_admin_user(session)
     await engine.dispose()
     yield
 
