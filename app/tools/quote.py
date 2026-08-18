@@ -9,7 +9,7 @@ SHIPPING_RATE_CNY_PER_KG = 22.0  # sea freight China→Cameroon, per kg
 class QuoteTool(BaseTool):
     name = "get_quote"
     description = (
-        "Get a price quote for a Rest Solar product. "
+        "Get a price quote for a RestarSolar product. "
         "Returns subtotal, import duty, VAT, shipping, and total in CNY and XAF."
     )
 

@@ -44,7 +44,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Rest Solar AI Agent", lifespan=lifespan)
+app = FastAPI(title="RestarSolar AI Agent", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

@@ -17,7 +17,7 @@ def send_ticket_email(ticket_id: int, subject: str, body: str) -> dict:
         return {"status": "skipped", "reason": "SMTP not configured"}
 
     msg = MIMEText(f"Ticket #{ticket_id}\n\n{body}")
-    msg["Subject"] = f"[Rest Solar] {subject}"
+    msg["Subject"] = f"[RestarSolar] {subject}"
     msg["From"] = smtp_user
     msg["To"] = admin_email
 

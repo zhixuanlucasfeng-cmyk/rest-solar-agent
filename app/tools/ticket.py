@@ -7,7 +7,7 @@ from app.worker import send_ticket_email
 class TicketTool(BaseTool):
     name = "create_ticket"
     description = (
-        "Create a support ticket and notify the Rest Solar team by email. "
+        "Create a support ticket and notify the RestarSolar team by email. "
         "Use when the customer has an issue that needs human follow-up."
     )
 

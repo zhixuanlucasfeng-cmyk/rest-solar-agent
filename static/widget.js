@@ -25,7 +25,7 @@
       ">
         <div style="background:#1e40af;color:white;padding:16px;border-radius:${isMobile ? '0' : '16px 16px 0 0'};
                     display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-weight:600;font-size:16px;">Rest Solar Support</span>
+          <span style="font-weight:600;font-size:16px;">RestarSolar Support</span>
           <button id="rs-close" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;">&#x2715;</button>
         </div>
         <div id="rs-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;"></div>
