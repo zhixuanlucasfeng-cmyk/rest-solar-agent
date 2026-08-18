@@ -1,0 +1,75 @@
+{% extends "admin/base.html" %}
+{% block title %}Edit Product{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Edit Product — {{ p.name }}</h1>
+
+<form action="/admin/products/{{ p.id }}/edit" method="post" enctype="multipart/form-data"
+      class="bg-white rounded shadow p-4 mb-6 grid grid-cols-3 gap-3 max-w-3xl">
+  <input name="name" placeholder="Name" required value="{{ p.name }}" class="border rounded px-3 py-2 text-sm col-span-2">
+  <input name="sku" placeholder="SKU" required value="{{ p.sku }}" class="border rounded px-3 py-2 text-sm">
+
+  <select name="category" class="border rounded px-3 py-2 text-sm">
+    <option value="">Category…</option>
+    {% for c in category_choices %}<option value="{{ c }}" {{ 'selected' if p.category == c }}>{{ c }}</option>{% endfor %}
+  </select>
+  <input name="subcategory" placeholder="Subcategory" value="{{ p.subcategory or '' }}" class="border rounded px-3 py-2 text-sm">
+  <input name="model" placeholder="Model" value="{{ p.model or '' }}" class="border rounded px-3 py-2 text-sm">
+
+  <input name="wattage" placeholder="Wattage" value="{{ p.wattage or '' }}" class="border rounded px-3 py-2 text-sm">
+  <input name="power_kw" placeholder="Power (kW)" value="{{ p.power_kw or '' }}" class="border rounded px-3 py-2 text-sm">
+  <input name="capacity_ah" placeholder="Capacity (Ah)" value="{{ p.capacity_ah or '' }}" class="border rounded px-3 py-2 text-sm">
+
+  <input name="capacity_kwh" placeholder="Capacity (kWh)" value="{{ p.capacity_kwh or '' }}" class="border rounded px-3 py-2 text-sm">
+  <input name="voltage" placeholder="Voltage" value="{{ p.voltage or '' }}" class="border rounded px-3 py-2 text-sm">
+  <input name="dimensions" placeholder="Dimensions" value="{{ p.dimensions or '' }}" class="border rounded px-3 py-2 text-sm">
+
+  <input name="price_cny" type="number" step="0.01" placeholder="Price CNY" value="{{ p.price_cny or '' }}" class="border rounded px-3 py-2 text-sm">
+  <input name="price_xaf" type="number" step="0.01" placeholder="Price XAF" value="{{ p.price_xaf or '' }}" class="border rounded px-3 py-2 text-sm">
+  <input name="weight_kg" type="number" step="0.01" placeholder="Weight (kg)" value="{{ p.weight_kg or '' }}" class="border rounded px-3 py-2 text-sm">
+
+  <input name="duty_rate" type="number" step="0.0001" placeholder="Duty rate" value="{{ p.duty_rate }}" class="border rounded px-3 py-2 text-sm">
+  <input name="vat_rate" type="number" step="0.0001" placeholder="VAT rate" value="{{ p.vat_rate }}" class="border rounded px-3 py-2 text-sm">
+  <input name="stock" type="number" placeholder="Stock" value="{{ p.stock }}" class="border rounded px-3 py-2 text-sm">
+
+  <label class="flex items-center gap-2 text-sm text-gray-600 col-span-3">
+    <input type="checkbox" name="featured" value="true" {{ 'checked' if p.featured }}> Featured
+  </label>
+
+  <textarea name="features" placeholder="Features (one per line)" rows="2" class="border rounded px-3 py-2 text-sm col-span-3">{{ p.features or '' }}</textarea>
+  <textarea name="use_cases" placeholder="Use cases" rows="2" class="border rounded px-3 py-2 text-sm col-span-3">{{ p.use_cases or '' }}</textarea>
+
+  <label class="text-xs text-gray-500 col-span-3 -mb-2">
+    Datasheet (PDF) {% if p.datasheet_path %}— <a href="/{{ p.datasheet_path }}" target="_blank" class="text-blue-700 hover:underline">current file ↓</a>{% endif %}
+  </label>
+  <input name="datasheet" type="file" accept="application/pdf" class="border rounded px-3 py-2 text-sm col-span-3">
+
+  <label class="text-xs text-gray-500 col-span-3 -mb-2">
+    Primary image {% if p.image_path %}— currently set{% endif %} (upload to replace)
+  </label>
+  <input name="primary_image" type="file" accept="image/*" class="border rounded px-3 py-2 text-sm col-span-3">
+  {% if p.image_path %}
+  <img src="/{{ p.image_path }}" class="w-16 h-16 object-cover rounded border col-span-3">
+  {% endif %}
+
+  <label class="text-xs text-gray-500 col-span-3 -mb-2">Add more gallery images</label>
+  <input name="gallery_images" type="file" accept="image/*" multiple class="border rounded px-3 py-2 text-sm col-span-3">
+
+  <button type="submit" class="bg-blue-800 text-white py-2 rounded text-sm col-span-3">Save Changes</button>
+</form>
+
+{% if p.images %}
+<h2 class="text-lg font-semibold mb-2">Gallery ({{ p.images|length }})</h2>
+<div class="flex flex-wrap gap-3 max-w-3xl">
+  {% for img in p.images %}
+  <div class="bg-white rounded shadow p-2 flex flex-col items-center gap-1">
+    <img src="/{{ img.path }}" class="w-20 h-20 object-cover rounded border">
+    <form action="/admin/products/{{ p.id }}/images/{{ img.id }}/delete" method="post">
+      <button type="submit" class="text-red-500 hover:underline text-xs">Remove</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<a href="/admin/products" class="inline-block mt-6 text-sm text-blue-700 hover:underline">← Back to products</a>
+{% endblock %}

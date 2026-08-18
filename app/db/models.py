@@ -72,6 +72,22 @@ class Product(Base):
     featured: Mapped[bool] = mapped_column(Boolean, default=False)
     use_cases: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    images: Mapped[list["ProductImage"]] = relationship(
+        "ProductImage", back_populates="product", cascade="all, delete-orphan",
+        order_by="ProductImage.sort_order",
+    )
+
+
+class ProductImage(Base):
+    __tablename__ = "product_images"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
+    path: Mapped[str] = mapped_column(String(255), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    product: Mapped["Product"] = relationship("Product", back_populates="images")
+
 
 class Order(Base):
     __tablename__ = "orders"

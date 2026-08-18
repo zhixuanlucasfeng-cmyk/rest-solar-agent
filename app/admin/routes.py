@@ -1,15 +1,32 @@
-from fastapi import APIRouter, Request, Form, Depends, Response, HTTPException
+import os
+from pathlib import Path
+
+from fastapi import APIRouter, Request, Form, Depends, Response, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func
+from sqlalchemy.orm import selectinload
 from app.db.session import get_db
-from app.db.models import AdminUser, Conversation, Message, Rule, Product, Order, Ticket
+from app.db.models import AdminUser, Conversation, Message, Rule, Product, ProductImage, Order, Ticket
 from app.admin.auth import verify_password, create_access_token, hash_password
 from app.admin.deps import get_current_admin, require_superadmin
 
 router = APIRouter(prefix="/admin")
 templates = Jinja2Templates(directory="templates")
+
+PRODUCT_CATEGORIES = ["solar_panels", "batteries", "inverters", "charge_controllers", "ess", "other"]
+
+
+def _save_upload(file: UploadFile, dest_dir: str, stem: str) -> str:
+    """Save an uploaded file under static/<dest_dir>/, named <stem><ext>. Returns the stored relative path."""
+    ext = Path(file.filename or "").suffix or ".bin"
+    rel_path = f"static/{dest_dir}/{stem}{ext}"
+    full_path = Path(rel_path)
+    full_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(full_path, "wb") as f:
+        f.write(file.file.read())
+    return rel_path
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -139,7 +156,7 @@ async def products_page(
     current_user: AdminUser = Depends(get_current_admin),
     category: str | None = None,
 ):
-    stmt = select(Product).order_by(Product.category, Product.sku)
+    stmt = select(Product).options(selectinload(Product.images)).order_by(Product.category, Product.sku)
     if category:
         stmt = stmt.where(Product.category == category)
     result = await db.execute(stmt)
@@ -155,7 +172,23 @@ async def products_page(
         context={
             "current_user": current_user, "products": products, "total_count": total_count,
             "categories": categories, "selected_category": category,
+            "category_choices": PRODUCT_CATEGORIES,
         },
+    )
+
+
+def _product_fields_from_form(
+    name, sku, category, subcategory, model, wattage, power_kw, capacity_ah,
+    capacity_kwh, voltage, dimensions, price_cny, price_xaf, duty_rate, vat_rate,
+    weight_kg, stock, featured, features, use_cases,
+) -> dict:
+    return dict(
+        name=name, sku=sku.upper(), category=category or None, subcategory=subcategory or None,
+        model=model or None, wattage=wattage or None, power_kw=power_kw or None,
+        capacity_ah=capacity_ah or None, capacity_kwh=capacity_kwh or None, voltage=voltage or None,
+        dimensions=dimensions or None, price_cny=price_cny, price_xaf=price_xaf,
+        duty_rate=duty_rate, vat_rate=vat_rate, weight_kg=weight_kg, stock=stock,
+        featured=featured, features=features or None, use_cases=use_cases or None,
     )
 
 
@@ -163,18 +196,118 @@ async def products_page(
 async def create_product(
     request: Request,
     name: str = Form(...), sku: str = Form(...),
+    category: str = Form(None), subcategory: str = Form(None), model: str = Form(None),
+    wattage: str = Form(None), power_kw: str = Form(None), capacity_ah: str = Form(None),
+    capacity_kwh: str = Form(None), voltage: str = Form(None), dimensions: str = Form(None),
     price_cny: float = Form(None), price_xaf: float = Form(None),
     duty_rate: float = Form(0.30), vat_rate: float = Form(0.1925),
     weight_kg: float = Form(None), stock: int = Form(0),
+    featured: bool = Form(False), features: str = Form(None), use_cases: str = Form(None),
+    datasheet: UploadFile = File(None), primary_image: UploadFile = File(None),
+    gallery_images: list[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
     current_user: AdminUser = Depends(get_current_admin),
 ):
-    db.add(Product(
-        name=name, sku=sku.upper(), price_cny=price_cny, price_xaf=price_xaf,
-        duty_rate=duty_rate, vat_rate=vat_rate, weight_kg=weight_kg, stock=stock,
-    ))
+    fields = _product_fields_from_form(
+        name, sku, category, subcategory, model, wattage, power_kw, capacity_ah,
+        capacity_kwh, voltage, dimensions, price_cny, price_xaf, duty_rate, vat_rate,
+        weight_kg, stock, featured, features, use_cases,
+    )
+    product = Product(**fields)
+    stem = fields["sku"]
+
+    if datasheet and datasheet.filename:
+        product.datasheet_path = _save_upload(datasheet, "datasheets", stem)
+    if primary_image and primary_image.filename:
+        product.image_path = _save_upload(primary_image, "product_images", stem)
+
+    db.add(product)
+    await db.flush()
+
+    for i, img in enumerate([g for g in (gallery_images or []) if g and g.filename]):
+        path = _save_upload(img, "product_images", f"{stem}_{i + 1}")
+        db.add(ProductImage(product_id=product.id, path=path, sort_order=i))
+
     await db.commit()
     return RedirectResponse(url="/admin/products", status_code=302)
+
+
+@router.get("/products/{product_id}/edit", response_class=HTMLResponse)
+async def edit_product_page(
+    product_id: int, request: Request, db: AsyncSession = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_admin),
+):
+    result = await db.execute(
+        select(Product).options(selectinload(Product.images)).where(Product.id == product_id)
+    )
+    product = result.scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return templates.TemplateResponse(
+        request=request, name="admin/product_edit.html",
+        context={"current_user": current_user, "p": product, "category_choices": PRODUCT_CATEGORIES},
+    )
+
+
+@router.post("/products/{product_id}/edit")
+async def update_product(
+    product_id: int, request: Request,
+    name: str = Form(...), sku: str = Form(...),
+    category: str = Form(None), subcategory: str = Form(None), model: str = Form(None),
+    wattage: str = Form(None), power_kw: str = Form(None), capacity_ah: str = Form(None),
+    capacity_kwh: str = Form(None), voltage: str = Form(None), dimensions: str = Form(None),
+    price_cny: float = Form(None), price_xaf: float = Form(None),
+    duty_rate: float = Form(0.30), vat_rate: float = Form(0.1925),
+    weight_kg: float = Form(None), stock: int = Form(0),
+    featured: bool = Form(False), features: str = Form(None), use_cases: str = Form(None),
+    datasheet: UploadFile = File(None), primary_image: UploadFile = File(None),
+    gallery_images: list[UploadFile] = File(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_admin),
+):
+    result = await db.execute(
+        select(Product).options(selectinload(Product.images)).where(Product.id == product_id)
+    )
+    product = result.scalar_one_or_none()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    fields = _product_fields_from_form(
+        name, sku, category, subcategory, model, wattage, power_kw, capacity_ah,
+        capacity_kwh, voltage, dimensions, price_cny, price_xaf, duty_rate, vat_rate,
+        weight_kg, stock, featured, features, use_cases,
+    )
+    for key, value in fields.items():
+        setattr(product, key, value)
+    stem = fields["sku"]
+
+    if datasheet and datasheet.filename:
+        product.datasheet_path = _save_upload(datasheet, "datasheets", stem)
+    if primary_image and primary_image.filename:
+        product.image_path = _save_upload(primary_image, "product_images", stem)
+
+    existing_count = len(product.images)
+    for i, img in enumerate([g for g in (gallery_images or []) if g and g.filename]):
+        path = _save_upload(img, "product_images", f"{stem}_{existing_count + i + 1}")
+        db.add(ProductImage(product_id=product.id, path=path, sort_order=existing_count + i))
+
+    await db.commit()
+    return RedirectResponse(url="/admin/products", status_code=302)
+
+
+@router.post("/products/{product_id}/images/{image_id}/delete")
+async def delete_product_image(
+    product_id: int, image_id: int, db: AsyncSession = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_admin),
+):
+    result = await db.execute(
+        select(ProductImage).where(ProductImage.id == image_id, ProductImage.product_id == product_id)
+    )
+    image = result.scalar_one_or_none()
+    if image:
+        await db.delete(image)
+        await db.commit()
+    return RedirectResponse(url=f"/admin/products/{product_id}/edit", status_code=302)
 
 
 @router.post("/products/{product_id}/delete")
