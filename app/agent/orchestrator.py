@@ -115,6 +115,9 @@ async def _retrieve_catalog_context(message: str, db: AsyncSession) -> str:
                 meets = (hi >= threshold) if direction == "above" else (lo <= threshold)
                 score += 4 if meets else -4
 
+        if p.featured and score > 0:
+            score += 1  # nudge featured/recommended models up among otherwise-tied matches
+
         if score > 0:
             scored.append((score, p))
 
@@ -136,11 +139,15 @@ async def _retrieve_catalog_context(message: str, db: AsyncSession) -> str:
             if p.price_xaf
             else "Price on request — datasheet available."
         )
+        featured_bit = " (★ Featured/recommended model)" if p.featured else ""
         lines.append(
-            f"- {p.model} ({p.category}{'/' + p.subcategory if p.subcategory else ''}, SKU {p.sku}): "
+            f"- {p.model} ({p.category}{'/' + p.subcategory if p.subcategory else ''}, SKU {p.sku}){featured_bit}: "
             f"{specs}.{feats} {price_bit}"
         )
-    return "2026 catalog matches for this question:\n" + "\n".join(lines)
+    return (
+        "2026 catalog matches for this question (mention naturally when a match is marked "
+        "★ Featured/recommended — e.g. call it one of our top picks):\n" + "\n".join(lines)
+    )
 
 _FAQ_CONTENT = """
 Q: What solar panel sizes do you sell?

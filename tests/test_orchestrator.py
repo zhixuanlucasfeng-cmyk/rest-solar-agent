@@ -116,3 +116,28 @@ async def test_catalog_context_falls_back_when_price_unset(mock_llm, db_with_rul
 
     system_content = mock_llm.call_args.args[0][0]["content"]
     assert "Price on request" in system_content
+
+
+@patch("app.agent.orchestrator.chat_complete")
+async def test_catalog_context_flags_featured_product(mock_llm, db_with_rules):
+    """Admin-marked Featured products must surface a ★ marker in the system
+    prompt so the assistant can call them out as a recommended pick — the
+    Featured flag previously only showed up in the admin UI, never reaching
+    what the bot actually told customers."""
+    db_with_rules.add(Product(
+        name="FeaturedPanel 300W", sku="SP-997-TEST", category="solar_panels",
+        model="FeaturedPanel300", wattage="300W", price_xaf=25000.0, featured=True,
+    ))
+    db_with_rules.add(Product(
+        name="PlainPanel 300W", sku="SP-996-TEST", category="solar_panels",
+        model="PlainPanel300", wattage="300W", price_xaf=24000.0, featured=False,
+    ))
+    await db_with_rules.commit()
+
+    mock_llm.return_value = await _make_llm_text_response("We recommend the FeaturedPanel300.")
+    await run("Tell me about your 300W panels", "session-8", db_with_rules)
+
+    system_content = mock_llm.call_args.args[0][0]["content"]
+    assert "SKU SP-997-TEST) (★ Featured/recommended model):" in system_content
+    assert "SKU SP-996-TEST):" in system_content
+    assert "SKU SP-996-TEST) (★" not in system_content
