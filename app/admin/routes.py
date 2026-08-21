@@ -412,8 +412,9 @@ async def reports_page(
 
 @router.post("/reports/export")
 async def trigger_export(
+    db: AsyncSession = Depends(get_db),
     current_user: AdminUser = Depends(require_superadmin),
 ):
     from app.worker import export_conversations_csv
-    export_conversations_csv()
+    await export_conversations_csv(db)
     return RedirectResponse(url="/admin/reports", status_code=302)

@@ -31,19 +31,14 @@ def send_ticket_email(ticket_id: int, subject: str, body: str) -> dict:
         return {"status": "error", "error": str(e)}
 
 
-def export_conversations_csv() -> dict:
-    import csv, io, sqlite3
-    db_path = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/rest_solar.db")
-    db_path = db_path.replace("sqlite+aiosqlite:///", "").replace("sqlite:///", "")
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT c.id, c.session_id, c.language, c.created_at,
-               m.role, m.content, m.created_at
-        FROM conversations c
-        LEFT JOIN messages m ON m.conversation_id = c.id
-        ORDER BY c.id, m.created_at
-    """)
-    rows = cursor.fetchall()
-    conn.close()
+async def export_conversations_csv(db) -> dict:
+    from sqlalchemy import select
+    from app.db.models import Conversation, Message
+
+    result = await db.execute(
+        select(Conversation, Message)
+        .outerjoin(Message, Message.conversation_id == Conversation.id)
+        .order_by(Conversation.id, Message.created_at)
+    )
+    rows = result.all()
     return {"status": "done", "rows": len(rows)}

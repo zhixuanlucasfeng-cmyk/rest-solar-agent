@@ -4,7 +4,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/rest_solar.db")
+
+def _normalize_database_url(url: str) -> str:
+    """Render's Postgres connection strings come as plain postgres://
+    or postgresql://, which psycopg2 understands but SQLAlchemy's async
+    engine does not — it needs the asyncpg dialect spelled out."""
+    if url.startswith("postgres://"):
+        return "postgresql+asyncpg://" + url[len("postgres://"):]
+    if url.startswith("postgresql://"):
+        return "postgresql+asyncpg://" + url[len("postgresql://"):]
+    return url
+
+
+DATABASE_URL = _normalize_database_url(
+    os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/rest_solar.db")
+)
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
