@@ -110,11 +110,11 @@ class Order(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     order_number: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    country: Mapped[str] = mapped_column(String(2), nullable=False, index=True, default="CM")
+    country: Mapped[str] = mapped_column(String(2), nullable=False, index=True, default="CM", server_default="CM")
     conversation_id: Mapped[int | None] = mapped_column(ForeignKey("conversations.id"), nullable=True)
     customer_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     contact: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    items: Mapped[str] = mapped_column(Text, default="")
+    items: Mapped[str] = mapped_column(Text, default="", server_default="")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     total_xaf: Mapped[float | None] = mapped_column(Float, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="pending")

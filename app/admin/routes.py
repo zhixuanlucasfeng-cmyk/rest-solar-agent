@@ -8,7 +8,7 @@ from app.db.session import get_db
 from app.db.models import AdminUser, Conversation, Message, Rule, Product, ProductImage, Order, Ticket
 from app.admin.auth import verify_password, create_access_token, hash_password
 from app.admin.deps import get_current_admin, require_superadmin, scope_clause, assert_visible
-from app.countries import normalize_country
+from app.countries import normalize_country, is_valid_country, COUNTRIES
 from app.media import media_url, save_upload
 
 router = APIRouter(prefix="/admin")
@@ -16,6 +16,7 @@ templates = Jinja2Templates(directory="templates")
 templates.env.globals["media_url"] = media_url
 
 PRODUCT_CATEGORIES = ["solar_panels", "batteries", "inverters", "charge_controllers", "ess", "other"]
+ORDER_STATUSES = ["pending", "contacted", "quoted", "paid", "shipped", "closed"]
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -167,9 +168,15 @@ async def products_page(
     result = await db.execute(stmt)
     products = result.scalars().all()
 
-    total_count = await db.scalar(select(func.count()).select_from(Product))
+    count_stmt = select(func.count()).select_from(Product)
+    cats_stmt = select(Product.category).distinct()
+    if current_user.country is not None:
+        scope = or_(Product.country.is_(None), Product.country == current_user.country)
+        count_stmt = count_stmt.where(scope)
+        cats_stmt = cats_stmt.where(scope)
+    total_count = await db.scalar(count_stmt)
 
-    cats_result = await db.execute(select(Product.category).distinct())
+    cats_result = await db.execute(cats_stmt)
     categories = sorted(c for (c,) in cats_result.all() if c)
 
     return templates.TemplateResponse(
@@ -325,8 +332,9 @@ async def delete_product_image(
         product = (await db.execute(
             select(Product).where(Product.id == product_id)
         )).scalar_one_or_none()
-        if product:
-            _assert_product_writable(current_user, product)
+        if not product:
+            raise HTTPException(status_code=404, detail="Not found")
+        _assert_product_writable(current_user, product)
         await db.delete(image)
         await db.commit()
     return RedirectResponse(url=f"/admin/products/{product_id}/edit", status_code=302)
@@ -367,6 +375,8 @@ async def update_order_status(
     db: AsyncSession = Depends(get_db),
     current_user: AdminUser = Depends(get_current_admin),
 ):
+    if status not in ORDER_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid order status")
     result = await db.execute(select(Order).where(Order.id == order_id))
     order = result.scalar_one_or_none()
     if order:
@@ -431,11 +441,21 @@ async def users_page(
 
 @router.post("/users")
 async def create_user(
-    email: str = Form(...), password: str = Form(...), role: str = Form("agent"),
+    email: str = Form(...), password: str = Form(...),
+    role: str = Form("country_admin"), country: str = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: AdminUser = Depends(require_superadmin),
 ):
-    db.add(AdminUser(email=email, password_hash=hash_password(password), role=role))
+    if role == "superadmin":
+        user_country = None
+    else:
+        role = "country_admin"
+        if not is_valid_country(country):
+            raise HTTPException(status_code=400, detail="A country admin must have a valid country")
+        user_country = normalize_country(country)
+    db.add(AdminUser(
+        email=email, password_hash=hash_password(password), role=role, country=user_country,
+    ))
     await db.commit()
     return RedirectResponse(url="/admin/users", status_code=302)
 

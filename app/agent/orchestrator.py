@@ -2,9 +2,10 @@ import json
 import re
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_
 
 from app.agent.language_detector import detect_language
+from app.countries import normalize_country
 from app.agent.rule_engine import get_matching_rules
 from app.llm.client import chat_complete, chat_complete_stream, PendingToolCall
 from app.tools import get_tools, get_tool_map
@@ -72,11 +73,21 @@ def _parse_watt_threshold(message: str) -> tuple[str, float] | None:
     return None
 
 
-async def _retrieve_catalog_context(message: str, db: AsyncSession) -> str:
+async def _retrieve_catalog_context(
+    message: str, db: AsyncSession, country: str | None = None
+) -> str:
     """Keyword-match the user's message against the products table and
     return a compact text block for the top-scoring products, or "" if
-    nothing scores above zero."""
-    result = await db.execute(select(Product))
+    nothing scores above zero.
+
+    Only the shared catalog (Product.country IS NULL) plus the conversation's
+    own country is visible. A None/unknown country sees shared-only."""
+    stmt = select(Product)
+    if country:
+        stmt = stmt.where(or_(Product.country.is_(None), Product.country == country))
+    else:
+        stmt = stmt.where(Product.country.is_(None))
+    result = await db.execute(stmt)
     products = result.scalars().all()
     if not products:
         return ""
@@ -209,7 +220,9 @@ _SYSTEM_TEMPLATE = (
 )
 
 
-async def run(message: str, session_id: str, db: AsyncSession) -> dict:
+async def run(
+    message: str, session_id: str, db: AsyncSession, country: str | None = None
+) -> dict:
     """Run the full agent pipeline. Returns {\"reply\": str, \"language\": str}."""
 
     lang = detect_language(message)
@@ -220,13 +233,15 @@ async def run(message: str, session_id: str, db: AsyncSession) -> dict:
     conv = result.scalar_one_or_none()
     if not conv:
         conv = Conversation(session_id=session_id, language=lang)
+        if country is not None:
+            conv.country = normalize_country(country)
         db.add(conv)
         await db.flush()
 
     rule_bodies = await get_matching_rules(message, db)
     rules_text = "\n".join(f"- {body}" for body in rule_bodies) if rule_bodies else "None."
 
-    catalog_context = await _retrieve_catalog_context(message, db)
+    catalog_context = await _retrieve_catalog_context(message, db, conv.country)
     faq_content = f"{_FAQ_CONTENT}\n\n{catalog_context}" if catalog_context else _FAQ_CONTENT
 
     system_content = _SYSTEM_TEMPLATE.format(
@@ -316,7 +331,7 @@ async def run(message: str, session_id: str, db: AsyncSession) -> dict:
 
 
 async def run_stream(
-    message: str, session_id: str, db: AsyncSession
+    message: str, session_id: str, db: AsyncSession, country: str | None = None
 ) -> AsyncGenerator[str, None]:
     """Streaming variant of run(). Yields reply tokens one at a time."""
     lang = detect_language(message)
@@ -325,13 +340,15 @@ async def run_stream(
     conv = result.scalar_one_or_none()
     if not conv:
         conv = Conversation(session_id=session_id, language=lang)
+        if country is not None:
+            conv.country = normalize_country(country)
         db.add(conv)
         await db.flush()
 
     rule_bodies = await get_matching_rules(message, db)
     rules_text = "\n".join(f"- {body}" for body in rule_bodies) if rule_bodies else "None."
 
-    catalog_context = await _retrieve_catalog_context(message, db)
+    catalog_context = await _retrieve_catalog_context(message, db, conv.country)
     faq_content = f"{_FAQ_CONTENT}\n\n{catalog_context}" if catalog_context else _FAQ_CONTENT
 
     system_content = _SYSTEM_TEMPLATE.format(

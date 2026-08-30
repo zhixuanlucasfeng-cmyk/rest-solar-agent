@@ -15,6 +15,8 @@ async def get_media(asset_id: int, db: AsyncSession = Depends(get_db)):
     ).scalar_one_or_none()
     if asset is None:
         raise HTTPException(status_code=404, detail="Not found")
+    if asset.kind not in ("image", "datasheet"):
+        raise HTTPException(status_code=404, detail="Not found")
     return Response(
         content=asset.data,
         media_type=asset.content_type,

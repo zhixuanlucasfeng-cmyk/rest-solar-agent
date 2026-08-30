@@ -2,7 +2,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.main import app
-from app.db.models import Base, AdminUser, Conversation, Order, Ticket
+from app.db.models import Base, AdminUser, Conversation, Order, Ticket, ProductImage
 from app.admin.auth import hash_password, create_access_token
 
 
@@ -160,7 +160,8 @@ async def scoped_env():
         s.add_all([c_ng, c_ml])
         await s.flush()
         s.add_all([
-            Order(order_number="NG-1", country="NG", customer_name="A", items=""),
+            Order(order_number="NG-1", country="NG", customer_name="A",
+                  items="2x RTM210M panel", contact="+234 800 111 2222"),
             Order(order_number="ML-1", country="ML", customer_name="B", items=""),
             Ticket(conversation_id=c_ng.id, subject="ng t", body="x", status="open"),
             Ticket(conversation_id=c_ml.id, subject="ml t", body="x", status="open"),
@@ -332,6 +333,26 @@ async def test_country_admin_create_forces_own_country(product_env):
 
 
 @pytest.mark.asyncio
+async def test_country_admin_product_count_and_facets_scoped(scoped_env):
+    """final-review fix #7a: total_count and the category facet list must be
+    country-scoped, not a global count over every country's catalog."""
+    client, su_tok, ng_tok, _ = scoped_env
+    async with client(su_tok) as c:
+        await c.post("/admin/products", data={
+            "name": "Shared", "sku": "SH-CT", "country": "", "category": "solar_panels"})
+        await c.post("/admin/products", data={
+            "name": "NG one", "sku": "NG-CT", "country": "NG", "category": "inverters"})
+        await c.post("/admin/products", data={
+            "name": "ML one", "sku": "ML-CT", "country": "ML", "category": "batteries"})
+    async with client(ng_tok) as c:
+        r = await c.get("/admin/products")
+    assert b"All (2)" in r.content                      # shared + NG, not ML
+    assert b"?category=solar_panels" in r.content
+    assert b"?category=inverters" in r.content
+    assert b"?category=batteries" not in r.content      # ML-only category chip hidden
+
+
+@pytest.mark.asyncio
 async def test_country_admin_rules_forbidden(scoped_env):
     client, su_tok, ng_tok, _ = scoped_env
     async with client(ng_tok) as c:
@@ -346,3 +367,115 @@ async def test_country_admin_sidebar_hides_rules(scoped_env):
         r = await c.get("/admin/dashboard")
     assert b'href="/admin/rules"' not in r.content
     assert b'href="/admin/users"' not in r.content
+
+
+# --- final-review fix #2: Users page creates scoped, correctly-roled accounts ---
+
+@pytest.fixture
+async def su_env():
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    Session = async_sessionmaker(engine, expire_on_commit=False)
+    async with Session() as s:
+        su = AdminUser(email="su@x.c", password_hash=hash_password("p"), role="superadmin", country=None)
+        s.add(su)
+        await s.flush()
+        tok = create_access_token({"sub": str(su.id), "role": "superadmin"})
+        await s.commit()
+
+    from app.db.session import get_db
+    async def override_get_db():
+        async with Session() as s:
+            yield s
+    app.dependency_overrides[get_db] = override_get_db
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test", cookies={"admin_token": tok}) as c:
+        yield c, Session
+    app.dependency_overrides.clear()
+    await engine.dispose()
+
+
+async def _user_by_email(Session, email):
+    from sqlalchemy import select as _select
+    async with Session() as s:
+        return (await s.execute(_select(AdminUser).where(AdminUser.email == email))).scalar_one()
+
+
+@pytest.mark.asyncio
+async def test_create_country_admin_with_country(su_env):
+    c, Session = su_env
+    r = await c.post("/admin/users", data={
+        "email": "ng2@x.c", "password": "p", "role": "country_admin", "country": "NG",
+    }, follow_redirects=False)
+    assert r.status_code == 302
+    u = await _user_by_email(Session, "ng2@x.c")
+    assert u.role == "country_admin" and u.country == "NG"
+
+
+@pytest.mark.asyncio
+async def test_create_country_admin_without_country_is_400(su_env):
+    c, Session = su_env
+    r = await c.post("/admin/users", data={
+        "email": "bad@x.c", "password": "p", "role": "country_admin",
+    }, follow_redirects=False)
+    assert r.status_code == 400
+    from sqlalchemy import select as _select
+    async with Session() as s:
+        assert (await s.execute(_select(AdminUser).where(AdminUser.email == "bad@x.c"))).scalar_one_or_none() is None
+
+
+@pytest.mark.asyncio
+async def test_create_superadmin_forces_country_none(su_env):
+    c, Session = su_env
+    r = await c.post("/admin/users", data={
+        "email": "su2@x.c", "password": "p", "role": "superadmin", "country": "NG",
+    }, follow_redirects=False)
+    assert r.status_code == 302
+    u = await _user_by_email(Session, "su2@x.c")
+    assert u.role == "superadmin" and u.country is None
+
+
+# --- final-review fix #5: order status vocab + captured data visible ---
+
+@pytest.mark.asyncio
+async def test_update_order_status_rejects_invalid(scoped_env):
+    client, su_tok, ng_tok, _ = scoped_env
+    async with client(ng_tok) as c:
+        r = await c.post("/admin/orders/1/status", data={"status": "confirmed"}, follow_redirects=False)
+        assert r.status_code == 400
+        page = await c.get("/admin/orders")
+    assert b">pending<" in page.content  # NG-1 unchanged
+
+
+@pytest.mark.asyncio
+async def test_update_order_status_accepts_quoted(scoped_env):
+    client, su_tok, ng_tok, _ = scoped_env
+    async with client(ng_tok) as c:
+        r = await c.post("/admin/orders/1/status", data={"status": "quoted"}, follow_redirects=False)
+        assert r.status_code in (302, 303)
+        page = await c.get("/admin/orders")
+    assert b">quoted<" in page.content
+
+
+@pytest.mark.asyncio
+async def test_delete_product_image_404_when_parent_product_missing(su_env):
+    """fix #7c: a dangling image whose product is gone must not skip the write-guard."""
+    c, Session = su_env
+    async with Session() as s:
+        img = ProductImage(product_id=99999, path="", sort_order=0)
+        s.add(img)
+        await s.commit()
+        await s.refresh(img)
+        img_id = img.id
+    r = await c.post(f"/admin/products/99999/images/{img_id}/delete", follow_redirects=False)
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_orders_page_shows_contact_and_items(scoped_env):
+    client, su_tok, ng_tok, _ = scoped_env
+    async with client(ng_tok) as c:
+        r = await c.get("/admin/orders")
+    assert b"+234 800 111 2222" in r.content
+    assert b"2x RTM210M panel" in r.content

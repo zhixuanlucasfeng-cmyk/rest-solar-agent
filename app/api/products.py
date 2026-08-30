@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 from app.db.session import get_db
 from app.db.models import Product
 from app.media import media_url
-from app.countries import is_valid_country
+from app.countries import is_valid_country, normalize_country
 
 router = APIRouter()
 
@@ -23,7 +23,7 @@ async def list_products(country: str | None = Query(None), db: AsyncSession = De
     stmt = select(Product).options(selectinload(Product.images)).order_by(Product.category, Product.sku)
 
     if country and is_valid_country(country):
-        stmt = stmt.where(or_(Product.country.is_(None), Product.country == country.upper()))
+        stmt = stmt.where(or_(Product.country.is_(None), Product.country == normalize_country(country)))
     else:
         stmt = stmt.where(Product.country.is_(None))
 

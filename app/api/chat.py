@@ -22,14 +22,14 @@ class ChatResponse(BaseModel):
 
 @router.post("/api/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest, db: AsyncSession = Depends(get_db)):
-    result = await run(req.message, req.session_id, db)
+    result = await run(req.message, req.session_id, db, country=req.country)
     return ChatResponse(**result)
 
 
 @router.post("/api/chat/stream")
 async def chat_stream(req: ChatRequest, db: AsyncSession = Depends(get_db)):
     async def token_gen():
-        async for token in run_stream(req.message, req.session_id, db):
+        async for token in run_stream(req.message, req.session_id, db, country=req.country):
             yield token
 
     return StreamingResponse(token_gen(), media_type="text/plain; charset=utf-8")

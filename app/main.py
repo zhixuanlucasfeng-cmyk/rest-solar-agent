@@ -56,6 +56,8 @@ async def _seed_admin_users(session: AsyncSession) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if os.getenv("RENDER") and not os.getenv("DATABASE_URL"):
+        raise RuntimeError("DATABASE_URL must be set in production")
     engine = create_async_engine(DATABASE_URL)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

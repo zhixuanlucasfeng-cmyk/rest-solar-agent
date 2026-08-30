@@ -1,7 +1,11 @@
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from httpx import AsyncClient, ASGITransport
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.main import app
+from app.db.models import Base, Conversation
+from app.db.session import get_db
 
 
 @pytest.fixture
@@ -53,3 +57,34 @@ def test_chat_request_accepts_country():
     assert req.country == "NG"
     req2 = ChatRequest(message="hi", session_id="s")
     assert req2.country is None
+
+
+@patch("app.agent.orchestrator.chat_complete", new_callable=AsyncMock)
+async def test_chat_threads_country_into_conversation(mock_llm):
+    msg = MagicMock()
+    msg.content = "hi"
+    msg.tool_calls = None
+    mock_llm.return_value = msg
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    Session = async_sessionmaker(engine, expire_on_commit=False)
+
+    async def override_get_db():
+        async with Session() as s:
+            yield s
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            await c.post("/api/chat", json={"message": "hello", "session_id": "cc-1", "country": "NG"})
+            await c.post("/api/chat", json={"message": "hello", "session_id": "cc-2"})
+        async with Session() as s:
+            c1 = (await s.execute(select(Conversation).where(Conversation.session_id == "cc-1"))).scalar_one()
+            c2 = (await s.execute(select(Conversation).where(Conversation.session_id == "cc-2"))).scalar_one()
+        assert c1.country == "NG"
+        assert c2.country is None
+    finally:
+        app.dependency_overrides.clear()
+        await engine.dispose()

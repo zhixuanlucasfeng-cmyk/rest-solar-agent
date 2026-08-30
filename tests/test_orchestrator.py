@@ -119,6 +119,49 @@ async def test_catalog_context_falls_back_when_price_unset(mock_llm, db_with_rul
 
 
 @patch("app.agent.orchestrator.chat_complete")
+async def test_catalog_context_country_scoped(mock_llm, db_with_rules):
+    """A conversation's catalog context sees only shared products + its own
+    country's products, never another country's."""
+    db_with_rules.add_all([
+        Product(name="SharedPanel", sku="SHP-1", category="solar_panels",
+                model="SharedPanel", wattage="100W", country=None),
+        Product(name="NGPanel", sku="NGP-1", category="solar_panels",
+                model="NGPanel", wattage="100W", country="NG"),
+        Product(name="MLPanel", sku="MLP-1", category="solar_panels",
+                model="MLPanel", wattage="100W", country="ML"),
+    ])
+    await db_with_rules.commit()
+
+    mock_llm.return_value = await _make_llm_text_response("ok")
+    await run("Do you have the SharedPanel, NGPanel or MLPanel?",
+              "session-ctry-1", db_with_rules, country="NG")
+
+    system_content = mock_llm.call_args.args[0][0]["content"]
+    assert "SHP-1" in system_content
+    assert "NGP-1" in system_content
+    assert "MLP-1" not in system_content
+
+
+@patch("app.agent.orchestrator.chat_complete")
+async def test_catalog_context_none_country_sees_shared_only(mock_llm, db_with_rules):
+    db_with_rules.add_all([
+        Product(name="SharedPanel", sku="SHP-1", category="solar_panels",
+                model="SharedPanel", wattage="100W", country=None),
+        Product(name="NGPanel", sku="NGP-1", category="solar_panels",
+                model="NGPanel", wattage="100W", country="NG"),
+    ])
+    await db_with_rules.commit()
+
+    mock_llm.return_value = await _make_llm_text_response("ok")
+    await run("Do you have the SharedPanel or NGPanel?",
+              "session-ctry-2", db_with_rules)
+
+    system_content = mock_llm.call_args.args[0][0]["content"]
+    assert "SHP-1" in system_content
+    assert "NGP-1" not in system_content
+
+
+@patch("app.agent.orchestrator.chat_complete")
 async def test_catalog_context_flags_featured_product(mock_llm, db_with_rules):
     """Admin-marked Featured products must surface a ★ marker in the system
     prompt so the assistant can call them out as a recommended pick — the

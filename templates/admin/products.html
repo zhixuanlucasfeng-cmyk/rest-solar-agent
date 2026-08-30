@@ -127,7 +127,7 @@
         {% endif %}
       </td>
       <td class="p-3 whitespace-nowrap">
-        {% if current_user.role == "superadmin" or p.country == current_user.country %}
+        {% if current_user.country is none or p.country == current_user.country %}
         <a href="/admin/products/{{ p.id }}/edit" class="text-blue-700 hover:underline text-xs mr-3">Edit</a>
         <form action="/admin/products/{{ p.id }}/delete" method="post" class="inline">
           <button type="submit" class="text-red-500 hover:underline text-xs">Delete</button>

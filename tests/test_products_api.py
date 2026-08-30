@@ -65,3 +65,8 @@ async def test_products_feed_country_filter(client, db):
     r_bad = await client.get("/api/products?country=US")
     skus_bad = {p["sku"] for p in r_bad.json()}
     assert skus_bad == {"SH-1"}
+
+    # Whitespace / mixed-case country param must still resolve (fix #7d)
+    r_ws = await client.get("/api/products", params={"country": " ng "})
+    skus_ws = {p["sku"] for p in r_ws.json()}
+    assert skus_ws == {"SH-1", "NG-1"}

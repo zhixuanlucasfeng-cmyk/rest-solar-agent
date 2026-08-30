@@ -16,6 +16,8 @@ In the rest-solar-agent service → Environment, set the following:
 - `SEED_COUNTRY_ADMINS` = `cm:<pw>,ng:<pw>,sd:<pw>,ml:<pw>` (four distinct strong values, store in the team vault)
 - Keep `LLM_API_KEY`, `ADMIN_SECRET_KEY`, SMTP vars as they are.
 
+> **Rotating a country-admin password:** editing `SEED_COUNTRY_ADMINS` and redeploying does **not** change an existing password — seeding is idempotent per email and skips accounts that already exist. Rotate the password via the Users page, or with a manual DB update.
+
 ## 3. Deploy
 
 Push the `multi-country-backend` branch → merge to `phase-2-build` → Render auto-deploys.
@@ -33,6 +35,8 @@ export DATABASE_URL='postgresql://...neon...'
 python seed.py                          # rules + FAQ RAG
 python scripts/ingest_catalog_2026.py   # 169 shared products (country stays NULL)
 ```
+
+> **RAG index caveat:** `python seed.py` writes RAG vectors to `data/chroma_db`, which `.dockerignore` excludes from the image. Running it from a local shell populates Neon's `rules` table but leaves the production instance's FAQ/RAG index empty — populating the FAQ/RAG index on the production instance is a separate step, not covered by this command.
 
 ## 5. Verify
 

@@ -52,6 +52,36 @@ async def test_save_upload_and_serve():
 
 
 @pytest.mark.asyncio
+async def test_media_rejects_non_public_kind():
+    """fix #7e: only image/datasheet kinds are served through the public route."""
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    Session = async_sessionmaker(engine, expire_on_commit=False)
+    async with Session() as s:
+        a = MediaAsset(kind="secret", content_type="text/plain", data=b"nope", filename="s.txt")
+        s.add(a)
+        await s.commit()
+        await s.refresh(a)
+        aid = a.id
+
+    from app.db.session import get_db
+
+    async def override_get_db():
+        async with Session() as s:
+            yield s
+
+    app.dependency_overrides[get_db] = override_get_db
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get(f"/media/{aid}")
+    app.dependency_overrides.clear()
+    await engine.dispose()
+
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_media_404():
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     async with engine.begin() as conn:
