@@ -280,3 +280,69 @@ async def test_superadmin_dashboard_counts_all(scoped_env):
     assert r.status_code == 200
     assert b'text-blue-800">2</div>' in r.content    # 2 conversations
     assert b'text-orange-500">3</div>' in r.content  # 3 open tickets
+
+
+# --- Task 8: country-scoped products; Rules locked to superadmin -------------
+
+@pytest.fixture
+async def product_env(scoped_env):
+    """scoped_env + one shared (NULL) and one NG product, created via the API."""
+    import re
+    client, su_tok, ng_tok, _ = scoped_env
+    async with client(su_tok) as c:
+        await c.post("/admin/products",
+                     data={"name": "Shared panel", "sku": "SHARE-1", "country": ""},
+                     follow_redirects=False)
+        await c.post("/admin/products",
+                     data={"name": "NG panel", "sku": "NGP-1", "country": "NG"},
+                     follow_redirects=False)
+        r = await c.get("/admin/products")
+    ids = {sku: int(pid) for sku, pid in
+           re.findall(r'font-mono text-xs">([^<]+)</td>.*?/admin/products/(\d+)/edit', r.text, re.S)}
+    return client, su_tok, ng_tok, ids
+
+
+@pytest.mark.asyncio
+async def test_country_admin_product_list_shows_shared_and_own(product_env):
+    client, su_tok, ng_tok, ids = product_env
+    async with client(ng_tok) as c:
+        r = await c.get("/admin/products")
+    assert b"SHARE-1" in r.content and b"NGP-1" in r.content
+    assert b"read-only" in r.content  # shared row not editable by NG
+
+
+@pytest.mark.asyncio
+async def test_country_admin_cannot_edit_shared_product(product_env):
+    client, su_tok, ng_tok, ids = product_env
+    async with client(ng_tok) as c:
+        r = await c.post(f"/admin/products/{ids['SHARE-1']}/edit",
+                         data={"name": "hacked", "sku": "SHARE-1"}, follow_redirects=False)
+    assert r.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_country_admin_create_forces_own_country(product_env):
+    client, su_tok, ng_tok, ids = product_env
+    async with client(ng_tok) as c:
+        await c.post("/admin/products",
+                     data={"name": "New NG", "sku": "NEWNG-1", "country": "ML"},
+                     follow_redirects=False)
+        r = await c.get("/admin/products")
+    assert b"NEWNG-1" in r.content  # visible to NG => tagged NG, not ML
+
+
+@pytest.mark.asyncio
+async def test_country_admin_rules_forbidden(scoped_env):
+    client, su_tok, ng_tok, _ = scoped_env
+    async with client(ng_tok) as c:
+        r = await c.get("/admin/rules", follow_redirects=False)
+    assert r.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_country_admin_sidebar_hides_rules(scoped_env):
+    client, su_tok, ng_tok, _ = scoped_env
+    async with client(ng_tok) as c:
+        r = await c.get("/admin/dashboard")
+    assert b'href="/admin/rules"' not in r.content
+    assert b'href="/admin/users"' not in r.content

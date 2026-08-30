@@ -7,6 +7,16 @@
   <input name="name" placeholder="Name" required class="border rounded px-3 py-2 text-sm col-span-2">
   <input name="sku" placeholder="SKU" required class="border rounded px-3 py-2 text-sm">
 
+  {% if current_user.role == "superadmin" %}
+  <select name="country" class="border rounded px-3 py-2 text-sm col-span-3">
+    <option value="">Shared (all countries)</option>
+    <option value="CM">CM</option>
+    <option value="NG">NG</option>
+    <option value="SD">SD</option>
+    <option value="ML">ML</option>
+  </select>
+  {% endif %}
+
   <select name="category" class="border rounded px-3 py-2 text-sm">
     <option value="">Category…</option>
     {% for c in category_choices %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
@@ -66,6 +76,7 @@
       <th class="p-3"></th>
       <th class="p-3">SKU</th>
       <th class="p-3">Name</th>
+      <th class="p-3">Country</th>
       <th class="p-3">Category</th>
       <th class="p-3">Specs</th>
       <th class="p-3">Price</th>
@@ -91,6 +102,7 @@
         {{ p.name }}
         {% if p.featured %}<span class="ml-1 text-xs bg-amber-400 text-slate-900 px-1.5 py-0.5 rounded font-bold">★ Featured</span>{% endif %}
       </td>
+      <td class="p-3 text-xs">{{ p.country or 'Shared' }}</td>
       <td class="p-3 text-xs">
         {{ p.category or '-' }}{% if p.subcategory %}<br><span class="text-gray-400">{{ p.subcategory }}</span>{% endif %}
       </td>
@@ -115,10 +127,14 @@
         {% endif %}
       </td>
       <td class="p-3 whitespace-nowrap">
+        {% if current_user.role == "superadmin" or p.country == current_user.country %}
         <a href="/admin/products/{{ p.id }}/edit" class="text-blue-700 hover:underline text-xs mr-3">Edit</a>
         <form action="/admin/products/{{ p.id }}/delete" method="post" class="inline">
           <button type="submit" class="text-red-500 hover:underline text-xs">Delete</button>
         </form>
+        {% else %}
+        <span class="text-gray-400 text-xs">read-only</span>
+        {% endif %}
       </td>
     </tr>
     {% endfor %}

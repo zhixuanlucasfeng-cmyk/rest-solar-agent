@@ -2,12 +2,13 @@ from fastapi import APIRouter, Request, Form, Depends, Response, HTTPException, 
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func
+from sqlalchemy import select, desc, func, or_
 from sqlalchemy.orm import selectinload
 from app.db.session import get_db
 from app.db.models import AdminUser, Conversation, Message, Rule, Product, ProductImage, Order, Ticket
 from app.admin.auth import verify_password, create_access_token, hash_password
 from app.admin.deps import get_current_admin, require_superadmin, scope_clause, assert_visible
+from app.countries import normalize_country
 from app.media import media_url, save_upload
 
 router = APIRouter(prefix="/admin")
@@ -117,7 +118,7 @@ async def conversation_detail(
 @router.get("/rules", response_class=HTMLResponse)
 async def rules_page(
     request: Request, db: AsyncSession = Depends(get_db),
-    current_user: AdminUser = Depends(get_current_admin),
+    current_user: AdminUser = Depends(require_superadmin),
 ):
     result = await db.execute(select(Rule).order_by(Rule.priority))
     rules = result.scalars().all()
@@ -132,7 +133,7 @@ async def create_rule(
     request: Request,
     name: str = Form(...), trigger: str = Form(""), body: str = Form(...), priority: int = Form(10),
     db: AsyncSession = Depends(get_db),
-    current_user: AdminUser = Depends(get_current_admin),
+    current_user: AdminUser = Depends(require_superadmin),
 ):
     db.add(Rule(name=name, trigger=trigger, body=body, priority=priority))
     await db.commit()
@@ -142,7 +143,7 @@ async def create_rule(
 @router.post("/rules/{rule_id}/delete")
 async def delete_rule(
     rule_id: int, db: AsyncSession = Depends(get_db),
-    current_user: AdminUser = Depends(get_current_admin),
+    current_user: AdminUser = Depends(require_superadmin),
 ):
     result = await db.execute(select(Rule).where(Rule.id == rule_id))
     rule = result.scalar_one_or_none()
@@ -159,6 +160,8 @@ async def products_page(
     category: str | None = None,
 ):
     stmt = select(Product).options(selectinload(Product.images)).order_by(Product.category, Product.sku)
+    if current_user.country is not None:
+        stmt = stmt.where(or_(Product.country.is_(None), Product.country == current_user.country))
     if category:
         stmt = stmt.where(Product.category == category)
     result = await db.execute(stmt)
@@ -194,10 +197,16 @@ def _product_fields_from_form(
     )
 
 
+def _assert_product_writable(current_user: AdminUser, product: Product) -> None:
+    if current_user.country is not None and product.country is None:
+        raise HTTPException(status_code=403, detail="Shared catalog is superadmin-only")
+    assert_visible(current_user, product)
+
+
 @router.post("/products")
 async def create_product(
     request: Request,
-    name: str = Form(...), sku: str = Form(...),
+    name: str = Form(...), sku: str = Form(...), country: str = Form(None),
     category: str = Form(None), subcategory: str = Form(None), model: str = Form(None),
     wattage: str = Form(None), power_kw: str = Form(None), capacity_ah: str = Form(None),
     capacity_kwh: str = Form(None), voltage: str = Form(None), dimensions: str = Form(None),
@@ -216,6 +225,10 @@ async def create_product(
         weight_kg, stock, featured, features, use_cases,
     )
     product = Product(**fields)
+    if current_user.country is not None:
+        product.country = current_user.country
+    elif country:
+        product.country = normalize_country(country)
 
     if datasheet and datasheet.filename:
         product.datasheet_asset_id = await save_upload(db, datasheet, "datasheet")
@@ -244,6 +257,7 @@ async def edit_product_page(
     product = result.scalar_one_or_none()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+    _assert_product_writable(current_user, product)
     return templates.TemplateResponse(
         request=request, name="admin/product_edit.html",
         context={"current_user": current_user, "p": product, "category_choices": PRODUCT_CATEGORIES},
@@ -272,6 +286,7 @@ async def update_product(
     product = result.scalar_one_or_none()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+    _assert_product_writable(current_user, product)
 
     fields = _product_fields_from_form(
         name, sku, category, subcategory, model, wattage, power_kw, capacity_ah,
@@ -307,6 +322,11 @@ async def delete_product_image(
     )
     image = result.scalar_one_or_none()
     if image:
+        product = (await db.execute(
+            select(Product).where(Product.id == product_id)
+        )).scalar_one_or_none()
+        if product:
+            _assert_product_writable(current_user, product)
         await db.delete(image)
         await db.commit()
     return RedirectResponse(url=f"/admin/products/{product_id}/edit", status_code=302)
@@ -320,6 +340,7 @@ async def delete_product(
     result = await db.execute(select(Product).where(Product.id == product_id))
     product = result.scalar_one_or_none()
     if product:
+        _assert_product_writable(current_user, product)
         await db.delete(product)
         await db.commit()
     return RedirectResponse(url="/admin/products", status_code=302)
