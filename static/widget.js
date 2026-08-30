@@ -1,5 +1,8 @@
 (function () {
   const CONV_ID = Math.floor(Math.random() * 1000000);
+  const COUNTRY = (document.currentScript && document.currentScript.dataset.country
+                   ? document.currentScript.dataset.country
+                   : 'CM').toUpperCase();
   const isMobile = window.innerWidth < 768;
   let ws = null;
   let reconnectDelay = 1000;
@@ -49,7 +52,7 @@
 
   function connectWS() {
     const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-    ws = new WebSocket(protocol + '://' + location.host + '/ws/' + CONV_ID);
+    ws = new WebSocket(protocol + '://' + location.host + '/ws/' + CONV_ID + '?country=' + encodeURIComponent(COUNTRY));
 
     ws.onmessage = function (event) {
       const data = JSON.parse(event.data);

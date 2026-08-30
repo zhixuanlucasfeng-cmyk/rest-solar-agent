@@ -45,3 +45,11 @@ async def test_get_chat_page(client):
     resp = await client.get("/chat")
     assert resp.status_code == 200
     assert "text/html" in resp.headers["content-type"]
+
+
+def test_chat_request_accepts_country():
+    from app.api.chat import ChatRequest
+    req = ChatRequest(message="hi", session_id="s", country="NG")
+    assert req.country == "NG"
+    req2 = ChatRequest(message="hi", session_id="s")
+    assert req2.country is None
