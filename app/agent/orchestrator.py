@@ -250,9 +250,9 @@ async def run(message: str, session_id: str, db: AsyncSession) -> dict:
         messages.append({"role": role, "content": m.content})
     messages.append({"role": "user", "content": message})
 
-    tools_list = get_tools(db)
+    tools_list = get_tools(db, conv)
     tool_defs = [t.definition() for t in tools_list]
-    tool_map = get_tool_map(db)
+    tool_map = get_tool_map(db, conv)
 
     final_reply: str
     try:
@@ -355,9 +355,9 @@ async def run_stream(
         messages.append({"role": role, "content": m.content})
     messages.append({"role": "user", "content": message})
 
-    tools_list = get_tools(db)
+    tools_list = get_tools(db, conv)
     tool_defs = [t.definition() for t in tools_list]
-    tool_map = get_tool_map(db)
+    tool_map = get_tool_map(db, conv)
 
     db.add(Message(conversation_id=conv.id, role="user", content=message))
 
