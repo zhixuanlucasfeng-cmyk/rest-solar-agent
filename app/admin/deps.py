@@ -1,6 +1,6 @@
 from fastapi import Request, HTTPException, status, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, true
 from jose import JWTError
 from app.db.session import get_db
 from app.db.models import AdminUser
@@ -27,3 +27,19 @@ async def require_superadmin(current_user: AdminUser = Depends(get_current_admin
     if current_user.role != "superadmin":
         raise HTTPException(status_code=403, detail="Superadmin required")
     return current_user
+
+
+def scope_clause(user: AdminUser, model):
+    """WHERE clause restricting `model` rows to the user's country.
+    Superadmin (country is None) sees everything."""
+    if user.country is None:
+        return true()
+    return model.country == user.country
+
+
+def assert_visible(user: AdminUser, obj) -> None:
+    """404 if `obj` is outside the user's country scope."""
+    if user.country is None:
+        return
+    if getattr(obj, "country", None) != user.country:
+        raise HTTPException(status_code=404, detail="Not found")
