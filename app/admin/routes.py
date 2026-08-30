@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 from app.db.session import get_db
 from app.db.models import AdminUser, Conversation, Message, Rule, Product, ProductImage, Order, Ticket
 from app.admin.auth import verify_password, create_access_token, hash_password
-from app.admin.deps import get_current_admin, require_superadmin
+from app.admin.deps import get_current_admin, require_superadmin, scope_clause, assert_visible
 from app.media import media_url, save_upload
 
 router = APIRouter(prefix="/admin")
@@ -58,8 +58,17 @@ async def dashboard(
     db: AsyncSession = Depends(get_db),
     current_user: AdminUser = Depends(get_current_admin),
 ):
-    conv_count = (await db.execute(select(Conversation))).scalars().all()
-    ticket_count = (await db.execute(select(Ticket).where(Ticket.status == "open"))).scalars().all()
+    conv_count = (await db.execute(
+        select(Conversation).where(scope_clause(current_user, Conversation))
+    )).scalars().all()
+    open_tickets_stmt = select(Ticket).where(Ticket.status == "open")
+    if current_user.country is not None:
+        open_tickets_stmt = (
+            select(Ticket)
+            .join(Conversation, Ticket.conversation_id == Conversation.id)
+            .where(Ticket.status == "open", Conversation.country == current_user.country)
+        )
+    ticket_count = (await db.execute(open_tickets_stmt)).scalars().all()
     return templates.TemplateResponse(
         request=request, name="admin/dashboard.html",
         context={"current_user": current_user, "conv_count": len(conv_count), "open_tickets": len(ticket_count)},
@@ -72,7 +81,11 @@ async def conversations(
     db: AsyncSession = Depends(get_db),
     current_user: AdminUser = Depends(get_current_admin),
 ):
-    result = await db.execute(select(Conversation).order_by(desc(Conversation.created_at)).limit(50))
+    result = await db.execute(
+        select(Conversation)
+        .where(scope_clause(current_user, Conversation))
+        .order_by(desc(Conversation.created_at)).limit(50)
+    )
     convs = result.scalars().all()
     return templates.TemplateResponse(
         request=request, name="admin/conversations.html",
@@ -90,6 +103,7 @@ async def conversation_detail(
     conv = result.scalar_one_or_none()
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    assert_visible(current_user, conv)
     msg_result = await db.execute(
         select(Message).where(Message.conversation_id == conv_id).order_by(Message.created_at)
     )
@@ -316,7 +330,9 @@ async def orders_page(
     request: Request, db: AsyncSession = Depends(get_db),
     current_user: AdminUser = Depends(get_current_admin),
 ):
-    result = await db.execute(select(Order).order_by(desc(Order.created_at)))
+    result = await db.execute(
+        select(Order).where(scope_clause(current_user, Order)).order_by(desc(Order.created_at))
+    )
     orders = result.scalars().all()
     return templates.TemplateResponse(
         request=request, name="admin/orders.html",
@@ -333,6 +349,7 @@ async def update_order_status(
     result = await db.execute(select(Order).where(Order.id == order_id))
     order = result.scalar_one_or_none()
     if order:
+        assert_visible(current_user, order)
         order.status = status
         await db.commit()
     return RedirectResponse(url="/admin/orders", status_code=302)
@@ -343,7 +360,15 @@ async def tickets_page(
     request: Request, db: AsyncSession = Depends(get_db),
     current_user: AdminUser = Depends(get_current_admin),
 ):
-    result = await db.execute(select(Ticket).order_by(desc(Ticket.created_at)))
+    stmt = select(Ticket).order_by(desc(Ticket.created_at))
+    if current_user.country is not None:
+        stmt = (
+            select(Ticket)
+            .join(Conversation, Ticket.conversation_id == Conversation.id)
+            .where(Conversation.country == current_user.country)
+            .order_by(desc(Ticket.created_at))
+        )
+    result = await db.execute(stmt)
     tickets = result.scalars().all()
     return templates.TemplateResponse(
         request=request, name="admin/tickets.html",
@@ -359,6 +384,12 @@ async def close_ticket(
     result = await db.execute(select(Ticket).where(Ticket.id == ticket_id))
     ticket = result.scalar_one_or_none()
     if ticket:
+        if current_user.country is not None:
+            conv = (await db.execute(
+                select(Conversation).where(Conversation.id == ticket.conversation_id)
+            )).scalar_one_or_none()
+            if conv is None or conv.country != current_user.country:
+                raise HTTPException(status_code=404, detail="Not found")
         ticket.status = "closed"
         await db.commit()
     return RedirectResponse(url="/admin/tickets", status_code=302)

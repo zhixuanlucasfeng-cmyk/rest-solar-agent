@@ -2,7 +2,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.main import app
-from app.db.models import Base, AdminUser
+from app.db.models import Base, AdminUser, Conversation, Order, Ticket
 from app.admin.auth import hash_password, create_access_token
 
 
@@ -140,3 +140,143 @@ async def test_rules_crud(authed_client):
         "name": "Test Rule", "trigger": "test keyword", "body": "Test response", "priority": "10"
     }, follow_redirects=True)
     assert resp.status_code == 200
+
+
+# --- Task 7: country-scoped conversations / orders / tickets / dashboard ---
+
+@pytest.fixture
+async def scoped_env():
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    Session = async_sessionmaker(engine, expire_on_commit=False)
+    async with Session() as s:
+        su = AdminUser(email="su@x.c", password_hash=hash_password("p"), role="superadmin", country=None)
+        ng = AdminUser(email="ng@x.c", password_hash=hash_password("p"), role="country_admin", country="NG")
+        s.add_all([su, ng])
+        await s.flush()
+        c_ng = Conversation(session_id="c-ng", language="en", country="NG")
+        c_ml = Conversation(session_id="c-ml", language="en", country="ML")
+        s.add_all([c_ng, c_ml])
+        await s.flush()
+        s.add_all([
+            Order(order_number="NG-1", country="NG", customer_name="A", items=""),
+            Order(order_number="ML-1", country="ML", customer_name="B", items=""),
+            Ticket(conversation_id=c_ng.id, subject="ng t", body="x", status="open"),
+            Ticket(conversation_id=c_ml.id, subject="ml t", body="x", status="open"),
+            Ticket(conversation_id=None, subject="orphan t", body="x", status="open"),
+        ])
+        await s.commit()
+        su_tok = create_access_token({"sub": str(su.id), "role": "superadmin"})
+        ng_tok = create_access_token({"sub": str(ng.id), "role": "country_admin"})
+        ml_conv_id = c_ml.id  # a conversation NOT visible to NG
+
+    from app.db.session import get_db
+    async def override_get_db():
+        async with Session() as s:
+            yield s
+    app.dependency_overrides[get_db] = override_get_db
+    transport = ASGITransport(app=app)
+
+    def client(tok):
+        return AsyncClient(transport=transport, base_url="http://test", cookies={"admin_token": tok})
+
+    yield client, su_tok, ng_tok, ml_conv_id
+    app.dependency_overrides.clear()
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_country_admin_sees_only_own_orders(scoped_env):
+    client, su_tok, ng_tok, _ = scoped_env
+    async with client(ng_tok) as c:
+        r = await c.get("/admin/orders")
+    assert b"NG-1" in r.content and b"ML-1" not in r.content
+
+
+@pytest.mark.asyncio
+async def test_superadmin_sees_all_orders(scoped_env):
+    client, su_tok, ng_tok, _ = scoped_env
+    async with client(su_tok) as c:
+        r = await c.get("/admin/orders")
+    assert b"NG-1" in r.content and b"ML-1" in r.content
+
+
+@pytest.mark.asyncio
+async def test_country_admin_sees_only_own_conversations(scoped_env):
+    client, su_tok, ng_tok, _ = scoped_env
+    async with client(ng_tok) as c:
+        r = await c.get("/admin/conversations")
+    assert b"c-ng" in r.content and b"c-ml" not in r.content
+
+
+@pytest.mark.asyncio
+async def test_country_admin_conversation_detail_cross_country_404(scoped_env):
+    client, su_tok, ng_tok, ml_conv_id = scoped_env
+    async with client(ng_tok) as c:
+        r = await c.get(f"/admin/conversations/{ml_conv_id}")
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_superadmin_conversation_detail_ok(scoped_env):
+    client, su_tok, ng_tok, ml_conv_id = scoped_env
+    async with client(su_tok) as c:
+        r = await c.get(f"/admin/conversations/{ml_conv_id}")
+    assert r.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_country_admin_tickets_scoped(scoped_env):
+    client, su_tok, ng_tok, _ = scoped_env
+    async with client(ng_tok) as c:
+        r = await c.get("/admin/tickets")
+    assert b"ng t" in r.content
+    assert b"ml t" not in r.content
+    assert b"orphan t" not in r.content
+
+
+@pytest.mark.asyncio
+async def test_superadmin_tickets_all(scoped_env):
+    client, su_tok, ng_tok, _ = scoped_env
+    async with client(su_tok) as c:
+        r = await c.get("/admin/tickets")
+    assert b"ng t" in r.content and b"ml t" in r.content and b"orphan t" in r.content
+
+
+@pytest.mark.asyncio
+async def test_country_admin_close_cross_country_ticket_404(scoped_env):
+    client, su_tok, ng_tok, _ = scoped_env
+    # ticket 2 is the ML ticket
+    async with client(ng_tok) as c:
+        list_r = await c.get("/admin/tickets")
+        r = await c.post("/admin/tickets/2/close", follow_redirects=False)
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_country_admin_update_cross_country_order_404(scoped_env):
+    client, su_tok, ng_tok, _ = scoped_env
+    async with client(ng_tok) as c:
+        r = await c.post("/admin/orders/2/status", data={"status": "shipped"}, follow_redirects=False)
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_country_admin_dashboard_scoped_counts(scoped_env):
+    client, su_tok, ng_tok, _ = scoped_env
+    async with client(ng_tok) as c:
+        r = await c.get("/admin/dashboard")
+    assert r.status_code == 200
+    assert b'text-blue-800">1</div>' in r.content   # 1 conversation for NG
+    assert b'text-orange-500">1</div>' in r.content  # 1 open ticket for NG
+
+
+@pytest.mark.asyncio
+async def test_superadmin_dashboard_counts_all(scoped_env):
+    client, su_tok, ng_tok, _ = scoped_env
+    async with client(su_tok) as c:
+        r = await c.get("/admin/dashboard")
+    assert r.status_code == 200
+    assert b'text-blue-800">2</div>' in r.content    # 2 conversations
+    assert b'text-orange-500">3</div>' in r.content  # 3 open tickets
