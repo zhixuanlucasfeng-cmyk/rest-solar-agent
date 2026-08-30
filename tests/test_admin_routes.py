@@ -72,13 +72,6 @@ async def test_products_crud(authed_client):
 
 @pytest.mark.asyncio
 async def test_products_full_fields_and_images(authed_client):
-    from pathlib import Path
-    created_files = [
-        Path("static/product_images/INV-TEST-1.jpg"),
-        Path("static/product_images/INV-TEST-1_1.jpg"),
-        Path("static/product_images/INV-TEST-1_2.jpg"),
-    ]
-
     resp = await authed_client.post(
         "/admin/products",
         data={
@@ -94,51 +87,51 @@ async def test_products_full_fields_and_images(authed_client):
         ],
         follow_redirects=True,
     )
-    try:
-        assert resp.status_code == 200
+    assert resp.status_code == 200
 
-        list_resp = await authed_client.get("/admin/products")
-        assert b"INV-TEST-1" in list_resp.content
-        assert b"+2 photos" in list_resp.content
+    list_resp = await authed_client.get("/admin/products")
+    assert b"INV-TEST-1" in list_resp.content
+    assert b"+2 photos" in list_resp.content
 
-        for f in created_files:
-            assert f.exists(), f"expected {f} to have been saved"
+    import re
+    # Uploads are now stored as DB blobs served via /media/{id}, not files on disk.
+    media_match = re.search(rb'src="(/media/\d+)"', list_resp.content)
+    assert media_match, "expected primary image served from /media/{id}"
+    media_resp = await authed_client.get(media_match.group(1).decode())
+    assert media_resp.status_code == 200
+    assert media_resp.content == b"fakeimgbytes"
 
-        import re
-        m = re.search(rb'/admin/products/(\d+)/edit"', list_resp.content)
-        assert m, "could not find product id for INV-TEST-1"
-        pid = m.group(1).decode()
+    m = re.search(rb'/admin/products/(\d+)/edit"', list_resp.content)
+    assert m, "could not find product id for INV-TEST-1"
+    pid = m.group(1).decode()
 
-        edit_page = await authed_client.get(f"/admin/products/{pid}/edit")
-        assert edit_page.status_code == 200
-        assert b"Test Inverter" in edit_page.content
-        assert b"Gallery (2)" in edit_page.content
+    edit_page = await authed_client.get(f"/admin/products/{pid}/edit")
+    assert edit_page.status_code == 200
+    assert b"Test Inverter" in edit_page.content
+    assert b"Gallery (2)" in edit_page.content
 
-        update_resp = await authed_client.post(
-            f"/admin/products/{pid}/edit",
-            data={
-                "name": "Test Inverter v2", "sku": "INV-TEST-1", "category": "inverters",
-                "price_cny": "850", "price_xaf": "76000", "stock": "3",
-            },
-            follow_redirects=True,
-        )
-        assert update_resp.status_code == 200
-        assert b"Test Inverter v2" in (await authed_client.get("/admin/products")).content
+    update_resp = await authed_client.post(
+        f"/admin/products/{pid}/edit",
+        data={
+            "name": "Test Inverter v2", "sku": "INV-TEST-1", "category": "inverters",
+            "price_cny": "850", "price_xaf": "76000", "stock": "3",
+        },
+        follow_redirects=True,
+    )
+    assert update_resp.status_code == 200
+    assert b"Test Inverter v2" in (await authed_client.get("/admin/products")).content
 
-        edit_page2 = await authed_client.get(f"/admin/products/{pid}/edit")
-        img_id_match = re.search(rb'/admin/products/\d+/images/(\d+)/delete', edit_page2.content)
-        assert img_id_match
-        img_id = img_id_match.group(1).decode()
+    edit_page2 = await authed_client.get(f"/admin/products/{pid}/edit")
+    img_id_match = re.search(rb'/admin/products/\d+/images/(\d+)/delete', edit_page2.content)
+    assert img_id_match
+    img_id = img_id_match.group(1).decode()
 
-        del_resp = await authed_client.post(
-            f"/admin/products/{pid}/images/{img_id}/delete", follow_redirects=True
-        )
-        assert del_resp.status_code == 200
-        edit_page3 = await authed_client.get(f"/admin/products/{pid}/edit")
-        assert b"Gallery (1)" in edit_page3.content
-    finally:
-        for f in created_files:
-            f.unlink(missing_ok=True)
+    del_resp = await authed_client.post(
+        f"/admin/products/{pid}/images/{img_id}/delete", follow_redirects=True
+    )
+    assert del_resp.status_code == 200
+    edit_page3 = await authed_client.get(f"/admin/products/{pid}/edit")
+    assert b"Gallery (1)" in edit_page3.content
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,3 @@
-import os
-from pathlib import Path
-
 from fastapi import APIRouter, Request, Form, Depends, Response, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -11,22 +8,13 @@ from app.db.session import get_db
 from app.db.models import AdminUser, Conversation, Message, Rule, Product, ProductImage, Order, Ticket
 from app.admin.auth import verify_password, create_access_token, hash_password
 from app.admin.deps import get_current_admin, require_superadmin
+from app.media import media_url, save_upload
 
 router = APIRouter(prefix="/admin")
 templates = Jinja2Templates(directory="templates")
+templates.env.globals["media_url"] = media_url
 
 PRODUCT_CATEGORIES = ["solar_panels", "batteries", "inverters", "charge_controllers", "ess", "other"]
-
-
-def _save_upload(file: UploadFile, dest_dir: str, stem: str) -> str:
-    """Save an uploaded file under static/<dest_dir>/, named <stem><ext>. Returns the stored relative path."""
-    ext = Path(file.filename or "").suffix or ".bin"
-    rel_path = f"static/{dest_dir}/{stem}{ext}"
-    full_path = Path(rel_path)
-    full_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(full_path, "wb") as f:
-        f.write(file.file.read())
-    return rel_path
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -214,19 +202,18 @@ async def create_product(
         weight_kg, stock, featured, features, use_cases,
     )
     product = Product(**fields)
-    stem = fields["sku"]
 
     if datasheet and datasheet.filename:
-        product.datasheet_path = _save_upload(datasheet, "datasheets", stem)
+        product.datasheet_asset_id = await save_upload(db, datasheet, "datasheet")
     if primary_image and primary_image.filename:
-        product.image_path = _save_upload(primary_image, "product_images", stem)
+        product.image_asset_id = await save_upload(db, primary_image, "image")
 
     db.add(product)
     await db.flush()
 
     for i, img in enumerate([g for g in (gallery_images or []) if g and g.filename]):
-        path = _save_upload(img, "product_images", f"{stem}_{i + 1}")
-        db.add(ProductImage(product_id=product.id, path=path, sort_order=i))
+        asset_id = await save_upload(db, img, "image")
+        db.add(ProductImage(product_id=product.id, path="", asset_id=asset_id, sort_order=i))
 
     await db.commit()
     return RedirectResponse(url="/admin/products", status_code=302)
@@ -279,17 +266,18 @@ async def update_product(
     )
     for key, value in fields.items():
         setattr(product, key, value)
-    stem = fields["sku"]
 
     if datasheet and datasheet.filename:
-        product.datasheet_path = _save_upload(datasheet, "datasheets", stem)
+        product.datasheet_asset_id = await save_upload(db, datasheet, "datasheet")
     if primary_image and primary_image.filename:
-        product.image_path = _save_upload(primary_image, "product_images", stem)
+        product.image_asset_id = await save_upload(db, primary_image, "image")
 
     existing_count = len(product.images)
     for i, img in enumerate([g for g in (gallery_images or []) if g and g.filename]):
-        path = _save_upload(img, "product_images", f"{stem}_{existing_count + i + 1}")
-        db.add(ProductImage(product_id=product.id, path=path, sort_order=existing_count + i))
+        asset_id = await save_upload(db, img, "image")
+        db.add(ProductImage(
+            product_id=product.id, path="", asset_id=asset_id, sort_order=existing_count + i,
+        ))
 
     await db.commit()
     return RedirectResponse(url="/admin/products", status_code=302)

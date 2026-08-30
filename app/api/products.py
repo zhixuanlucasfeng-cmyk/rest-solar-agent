@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 
 from app.db.session import get_db
 from app.db.models import Product
+from app.media import media_url
 
 router = APIRouter()
 
@@ -36,9 +37,9 @@ async def list_products(db: AsyncSession = Depends(get_db)):
             "featured": p.featured,
             "features": p.features,
             "use_cases": p.use_cases,
-            "image": f"/{p.image_path}" if p.image_path else None,
-            "images": [f"/{img.path}" for img in p.images],
-            "datasheet": f"/{p.datasheet_path}" if p.datasheet_path else None,
+            "image": media_url(p.image_asset_id, p.image_path),
+            "images": [media_url(img.asset_id, img.path) for img in p.images],
+            "datasheet": media_url(p.datasheet_asset_id, p.datasheet_path),
         }
         for p in products
     ]

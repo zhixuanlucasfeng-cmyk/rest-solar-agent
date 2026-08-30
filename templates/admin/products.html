@@ -78,8 +78,9 @@
     {% for p in products %}
     <tr class="border-t {{ 'bg-amber-50' if p.featured else '' }}">
       <td class="p-3">
-        {% if p.image_path %}
-        <img src="/{{ p.image_path }}" class="w-12 h-12 object-cover rounded border" loading="lazy">
+        {% set img = media_url(p.image_asset_id, p.image_path) %}
+        {% if img %}
+        <img src="{{ img }}" class="w-12 h-12 object-cover rounded border" loading="lazy">
         {% endif %}
         {% if p.images %}
         <div class="text-[10px] text-gray-400 mt-0.5">+{{ p.images|length }} photo{{ 's' if p.images|length != 1 else '' }}</div>
@@ -108,8 +109,9 @@
       </td>
       <td class="p-3">{{ p.stock }}</td>
       <td class="p-3">
-        {% if p.datasheet_path %}
-        <a href="/{{ p.datasheet_path }}" target="_blank" class="text-blue-700 hover:underline text-xs">PDF ↓</a>
+        {% set ds = media_url(p.datasheet_asset_id, p.datasheet_path) %}
+        {% if ds %}
+        <a href="{{ ds }}" target="_blank" class="text-blue-700 hover:underline text-xs">PDF ↓</a>
         {% endif %}
       </td>
       <td class="p-3 whitespace-nowrap">
