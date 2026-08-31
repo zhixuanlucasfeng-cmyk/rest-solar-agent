@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Integer, String, Text, Boolean, DateTime, ForeignKey, Float
+from sqlalchemy import Integer, String, Text, Boolean, DateTime, ForeignKey, Float, LargeBinary
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -13,6 +13,7 @@ class Conversation(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     session_id: Mapped[str] = mapped_column(String(36), index=True)
     language: Mapped[str] = mapped_column(String(2), default="en")
+    country: Mapped[str | None] = mapped_column(String(2), nullable=True, index=True, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     messages: Mapped[list["Message"]] = relationship("Message", back_populates="conversation")
@@ -71,6 +72,9 @@ class Product(Base):
     image_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
     featured: Mapped[bool] = mapped_column(Boolean, default=False)
     use_cases: Mapped[str | None] = mapped_column(Text, nullable=True)
+    country: Mapped[str | None] = mapped_column(String(2), nullable=True, index=True, default=None)
+    image_asset_id: Mapped[int | None] = mapped_column(ForeignKey("media_assets.id"), nullable=True)
+    datasheet_asset_id: Mapped[int | None] = mapped_column(ForeignKey("media_assets.id"), nullable=True)
 
     images: Mapped[list["ProductImage"]] = relationship(
         "ProductImage", back_populates="product", cascade="all, delete-orphan",
@@ -85,8 +89,20 @@ class ProductImage(Base):
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
     path: Mapped[str] = mapped_column(String(255), nullable=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    asset_id: Mapped[int | None] = mapped_column(ForeignKey("media_assets.id"), nullable=True)
 
     product: Mapped["Product"] = relationship("Product", back_populates="images")
+
+
+class MediaAsset(Base):
+    __tablename__ = "media_assets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kind: Mapped[str] = mapped_column(String(20))          # "image" | "datasheet"
+    content_type: Mapped[str] = mapped_column(String(100))
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+    filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 class Order(Base):
@@ -94,7 +110,13 @@ class Order(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     order_number: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    country: Mapped[str] = mapped_column(String(2), nullable=False, index=True, default="CM", server_default="CM")
+    conversation_id: Mapped[int | None] = mapped_column(ForeignKey("conversations.id"), nullable=True)
     customer_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    contact: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    items: Mapped[str] = mapped_column(Text, default="", server_default="")
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    total_xaf: Mapped[float | None] = mapped_column(Float, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="pending")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -117,4 +139,5 @@ class AdminUser(Base):
     email: Mapped[str] = mapped_column(String(200), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(200), nullable=False)
     role: Mapped[str] = mapped_column(String(20), default="agent")
+    country: Mapped[str | None] = mapped_column(String(2), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

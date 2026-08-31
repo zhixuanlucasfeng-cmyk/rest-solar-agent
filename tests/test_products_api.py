@@ -39,3 +39,34 @@ async def test_list_products_public_no_auth_required(client, db):
     assert item["images"] == ["/static/product_images/PUB-TEST-1_1.jpg"]
     assert "duty_rate" not in item
     assert "vat_rate" not in item
+
+
+@pytest.mark.asyncio
+async def test_products_feed_country_filter(client, db):
+    # Seed products: one shared (country=None), one NG-only, one ML-only
+    db.add_all([
+        Product(name="Shared", sku="SH-1", category="solar_panels", country=None),
+        Product(name="NG only", sku="NG-1", category="solar_panels", country="NG"),
+        Product(name="ML only", sku="ML-1", category="solar_panels", country="ML"),
+    ])
+    await db.commit()
+
+    # No param: should return only shared (country=None)
+    r_all = await client.get("/api/products")
+    skus_default = {p["sku"] for p in r_all.json()}
+    assert skus_default == {"SH-1"}
+
+    # Valid country param: should return shared + that country's products
+    r_ng = await client.get("/api/products?country=NG")
+    skus_ng = {p["sku"] for p in r_ng.json()}
+    assert skus_ng == {"SH-1", "NG-1"}
+
+    # Invalid country param: should return only shared
+    r_bad = await client.get("/api/products?country=US")
+    skus_bad = {p["sku"] for p in r_bad.json()}
+    assert skus_bad == {"SH-1"}
+
+    # Whitespace / mixed-case country param must still resolve (fix #7d)
+    r_ws = await client.get("/api/products", params={"country": " ng "})
+    skus_ws = {p["sku"] for p in r_ws.json()}
+    assert skus_ws == {"SH-1", "NG-1"}

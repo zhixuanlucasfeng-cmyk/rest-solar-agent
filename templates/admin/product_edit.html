@@ -39,16 +39,18 @@
   <textarea name="use_cases" placeholder="Use cases" rows="2" class="border rounded px-3 py-2 text-sm col-span-3">{{ p.use_cases or '' }}</textarea>
 
   <label class="text-xs text-gray-500 col-span-3 -mb-2">
-    Datasheet (PDF) {% if p.datasheet_path %}— <a href="/{{ p.datasheet_path }}" target="_blank" class="text-blue-700 hover:underline">current file ↓</a>{% endif %}
+    {% set ds = media_url(p.datasheet_asset_id, p.datasheet_path) %}
+    Datasheet (PDF) {% if ds %}— <a href="{{ ds }}" target="_blank" class="text-blue-700 hover:underline">current file ↓</a>{% endif %}
   </label>
   <input name="datasheet" type="file" accept="application/pdf" class="border rounded px-3 py-2 text-sm col-span-3">
 
+  {% set img = media_url(p.image_asset_id, p.image_path) %}
   <label class="text-xs text-gray-500 col-span-3 -mb-2">
-    Primary image {% if p.image_path %}— currently set{% endif %} (upload to replace)
+    Primary image {% if img %}— currently set{% endif %} (upload to replace)
   </label>
   <input name="primary_image" type="file" accept="image/*" class="border rounded px-3 py-2 text-sm col-span-3">
-  {% if p.image_path %}
-  <img src="/{{ p.image_path }}" class="w-16 h-16 object-cover rounded border col-span-3">
+  {% if img %}
+  <img src="{{ img }}" class="w-16 h-16 object-cover rounded border col-span-3">
   {% endif %}
 
   <label class="text-xs text-gray-500 col-span-3 -mb-2">Add more gallery images</label>
@@ -62,7 +64,7 @@
 <div class="flex flex-wrap gap-3 max-w-3xl">
   {% for img in p.images %}
   <div class="bg-white rounded shadow p-2 flex flex-col items-center gap-1">
-    <img src="/{{ img.path }}" class="w-20 h-20 object-cover rounded border">
+    <img src="{{ media_url(img.asset_id, img.path) }}" class="w-20 h-20 object-cover rounded border">
     <form action="/admin/products/{{ p.id }}/images/{{ img.id }}/delete" method="post">
       <button type="submit" class="text-red-500 hover:underline text-xs">Remove</button>
     </form>

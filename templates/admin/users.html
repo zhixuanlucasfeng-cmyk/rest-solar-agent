@@ -6,20 +6,28 @@
   <input name="email" type="email" placeholder="Email" required class="border rounded px-3 py-2 text-sm">
   <input name="password" type="password" placeholder="Password" required class="border rounded px-3 py-2 text-sm">
   <select name="role" class="border rounded px-3 py-2 text-sm">
-    <option value="agent">agent</option>
+    <option value="country_admin">country_admin</option>
     <option value="superadmin">superadmin</option>
+  </select>
+  <select name="country" class="border rounded px-3 py-2 text-sm col-span-3">
+    <option value="">Country… (required for country_admin)</option>
+    <option value="CM">CM</option>
+    <option value="NG">NG</option>
+    <option value="SD">SD</option>
+    <option value="ML">ML</option>
   </select>
   <button type="submit" class="bg-blue-800 text-white py-2 rounded text-sm col-span-3">Create User</button>
 </form>
 <table class="w-full bg-white rounded shadow text-sm">
   <thead class="bg-gray-50 text-left">
-    <tr><th class="p-3">Email</th><th class="p-3">Role</th><th class="p-3">Created</th></tr>
+    <tr><th class="p-3">Email</th><th class="p-3">Role</th><th class="p-3">Country</th><th class="p-3">Created</th></tr>
   </thead>
   <tbody>
     {% for u in users %}
     <tr class="border-t">
       <td class="p-3">{{ u.email }}</td>
       <td class="p-3 text-xs font-medium {% if u.role == 'superadmin' %}text-blue-700{% endif %}">{{ u.role }}</td>
+      <td class="p-3">{{ u.country or '—' }}</td>
       <td class="p-3">{{ u.created_at.strftime("%Y-%m-%d") }}</td>
     </tr>
     {% endfor %}

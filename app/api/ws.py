@@ -1,11 +1,12 @@
 import json
 import os
 import redis.asyncio as aioredis
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.session import get_db
-from app.db.models import Conversation
+from app.db.models import Conversation, AdminUser
+from app.countries import normalize_country
 from app.agent.orchestrator import run_stream
 from app.api.ws_manager import manager
 
@@ -37,6 +38,21 @@ async def admin_ws(user_id: int, ws: WebSocket, db: AsyncSession = Depends(get_d
         await ws.close(code=4003)
         return
 
+    user = (await db.execute(
+        select(AdminUser).where(AdminUser.id == user_id)
+    )).scalar_one_or_none()
+    if user is None:
+        await ws.close(code=4003)
+        return
+
+    async def _conv_visible(conv_db_id: int) -> bool:
+        if user.country is None:
+            return True
+        conv = (await db.execute(
+            select(Conversation).where(Conversation.id == conv_db_id)
+        )).scalar_one_or_none()
+        return conv is not None and conv.country == user.country
+
     await manager.connect_admin(user_id, ws)
     redis = get_redis()
     try:
@@ -47,6 +63,8 @@ async def admin_ws(user_id: int, ws: WebSocket, db: AsyncSession = Depends(get_d
 
             if action == "takeover":
                 conv_db_id = int(data["conversation_id"])
+                if not await _conv_visible(conv_db_id):
+                    continue
                 await redis.set(f"conv:{conv_db_id}:mode", "human")
                 await redis.set(f"conv:{conv_db_id}:agent", str(user_id))
                 await manager.send_to_customer_by_db_id(conv_db_id, {
@@ -56,6 +74,8 @@ async def admin_ws(user_id: int, ws: WebSocket, db: AsyncSession = Depends(get_d
 
             elif action == "release":
                 conv_db_id = int(data["conversation_id"])
+                if not await _conv_visible(conv_db_id):
+                    continue
                 await redis.set(f"conv:{conv_db_id}:mode", "ai")
                 await redis.delete(f"conv:{conv_db_id}:agent")
                 await manager.send_to_customer_by_db_id(conv_db_id, {
@@ -65,6 +85,8 @@ async def admin_ws(user_id: int, ws: WebSocket, db: AsyncSession = Depends(get_d
 
             elif action == "message":
                 conv_db_id = int(data["conversation_id"])
+                if not await _conv_visible(conv_db_id):
+                    continue
                 await manager.send_to_customer_by_db_id(conv_db_id, {
                     "type": "agent_message",
                     "text": data.get("text", ""),
@@ -75,7 +97,12 @@ async def admin_ws(user_id: int, ws: WebSocket, db: AsyncSession = Depends(get_d
 
 
 @router.websocket("/ws/{conversation_id}")
-async def customer_ws(conversation_id: int, ws: WebSocket, db: AsyncSession = Depends(get_db)):
+async def customer_ws(
+    conversation_id: int,
+    ws: WebSocket,
+    country: str = Query("CM"),
+    db: AsyncSession = Depends(get_db),
+):
     redis = get_redis()
     session_id = f"conv-{conversation_id}"
 
@@ -83,7 +110,7 @@ async def customer_ws(conversation_id: int, ws: WebSocket, db: AsyncSession = De
     result = await db.execute(select(Conversation).where(Conversation.session_id == session_id))
     conv = result.scalar_one_or_none()
     if not conv:
-        conv = Conversation(session_id=session_id, language="en")
+        conv = Conversation(session_id=session_id, language="en", country=normalize_country(country))
         db.add(conv)
         await db.flush()
         await db.commit()

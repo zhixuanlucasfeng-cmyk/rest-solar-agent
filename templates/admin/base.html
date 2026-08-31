@@ -15,8 +15,8 @@
       <a href="/admin/products" class="hover:underline">Products</a>
       <a href="/admin/orders" class="hover:underline">Orders</a>
       <a href="/admin/tickets" class="hover:underline">Tickets</a>
-      <a href="/admin/rules" class="hover:underline">Rules</a>
       {% if current_user.role == "superadmin" %}
+      <a href="/admin/rules" class="hover:underline">Rules</a>
       <a href="/admin/users" class="hover:underline">Users</a>
       <a href="/admin/reports" class="hover:underline">Reports</a>
       {% endif %}
