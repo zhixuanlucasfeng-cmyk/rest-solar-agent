@@ -29,6 +29,14 @@ async def require_superadmin(current_user: AdminUser = Depends(get_current_admin
     return current_user
 
 
+async def require_admin(current_user: AdminUser = Depends(get_current_admin)) -> AdminUser:
+    """Block the CS-only 'agent' role from admin management pages.
+    Agents may only use the Inbox and read conversation history."""
+    if current_user.role == "agent":
+        raise HTTPException(status_code=403, detail="Agents can only use the Inbox")
+    return current_user
+
+
 def scope_clause(user: AdminUser, model):
     """WHERE clause restricting `model` rows to the user's country.
     Superadmin (country is None) sees everything."""

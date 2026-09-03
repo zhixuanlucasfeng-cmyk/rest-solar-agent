@@ -35,6 +35,70 @@ async def authed_client():
     await engine.dispose()
 
 
+@pytest.fixture
+async def agent_client():
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    Session = async_sessionmaker(engine, expire_on_commit=False)
+    async with Session() as session:
+        user = AdminUser(email="cs@test.com", password_hash=hash_password("pass"),
+                         role="agent", country="NG")
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        token = create_access_token({"sub": str(user.id), "role": user.role})
+
+    from app.db.session import get_db
+    async def override_get_db():
+        async with Session() as s:
+            yield s
+    app.dependency_overrides[get_db] = override_get_db
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test",
+                           cookies={"admin_token": token}) as client:
+        yield client
+
+    app.dependency_overrides.clear()
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_agent_can_use_inbox(agent_client):
+    assert (await agent_client.get("/admin/inbox")).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_agent_blocked_from_management_pages(agent_client):
+    for path in ("/admin/products", "/admin/orders", "/admin/tickets"):
+        assert (await agent_client.get(path)).status_code == 403, path
+
+
+@pytest.mark.asyncio
+async def test_agent_dashboard_redirects_to_inbox(agent_client):
+    resp = await agent_client.get("/admin/dashboard", follow_redirects=False)
+    assert resp.status_code == 302 and resp.headers["location"] == "/admin/inbox"
+
+
+@pytest.mark.asyncio
+async def test_create_agent_user(authed_client):
+    resp = await authed_client.post("/admin/users", data={
+        "email": "ng-cs@restsolar.com", "password": "x", "role": "agent", "country": "NG",
+    }, follow_redirects=False)
+    assert resp.status_code == 302
+    page = await authed_client.get("/admin/users")
+    assert b"ng-cs@restsolar.com" in page.content and b"agent" in page.content
+
+
+@pytest.mark.asyncio
+async def test_create_agent_requires_country(authed_client):
+    resp = await authed_client.post("/admin/users", data={
+        "email": "bad@x.com", "password": "x", "role": "agent", "country": "",
+    })
+    assert resp.status_code == 400
+
+
 @pytest.mark.asyncio
 async def test_dashboard_requires_auth():
     transport = ASGITransport(app=app)

@@ -1,5 +1,5 @@
 from fastapi import WebSocket
-from typing import Dict
+from typing import Dict, Optional
 import json
 
 
@@ -8,6 +8,7 @@ class ConnectionManager:
         self.customer_by_channel: Dict[int, WebSocket] = {}   # keyed by URL int (channel_id)
         self.customer_by_db_id: Dict[int, WebSocket] = {}     # keyed by DB conv.id
         self.admin: Dict[int, WebSocket] = {}                  # keyed by user_id
+        self.admin_country: Dict[int, Optional[str]] = {}      # user_id -> country ("None" = superadmin, sees all)
 
     async def connect_customer(self, channel_id: int, db_id: int, ws: WebSocket):
         await ws.accept()
@@ -28,12 +29,14 @@ class ConnectionManager:
         if ws:
             await ws.send_json(data)
 
-    async def connect_admin(self, user_id: int, ws: WebSocket):
+    async def connect_admin(self, user_id: int, ws: WebSocket, country: Optional[str] = None):
         await ws.accept()
         self.admin[user_id] = ws
+        self.admin_country[user_id] = country
 
     def disconnect_admin(self, user_id: int):
         self.admin.pop(user_id, None)
+        self.admin_country.pop(user_id, None)
 
     async def send_to_admin(self, user_id: int, data: dict):
         ws = self.admin.get(user_id)
@@ -43,6 +46,14 @@ class ConnectionManager:
     async def broadcast_to_all_admins(self, data: dict):
         for ws in list(self.admin.values()):
             await ws.send_json(data)
+
+    async def broadcast_to_admins_in_country(self, country: Optional[str], data: dict):
+        """Send to every admin whose scope covers `country`: the country's own
+        admins plus superadmins (admin_country is None)."""
+        for uid, ws in list(self.admin.items()):
+            scope = self.admin_country.get(uid)
+            if scope is None or scope == country:
+                await ws.send_json(data)
 
 
 manager = ConnectionManager()

@@ -152,6 +152,8 @@ async def admin_ws_factory(monkeypatch, admin_country, conv_country="CM"):
     app.dependency_overrides[get_db] = _get_db
     fake_redis = mock.AsyncMock()
     fake_redis.aclose = mock.AsyncMock()
+    fake_redis.keys = mock.AsyncMock(return_value=[])
+    fake_redis.get = mock.AsyncMock(return_value=None)
     monkeypatch.setattr("app.api.ws.get_redis", lambda: fake_redis)
 
     transport = ASGIWebSocketTransport(app=app)
