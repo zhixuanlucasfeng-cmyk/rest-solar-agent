@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 from app.db.session import get_db
 from app.db.models import AdminUser, Conversation, Message, Rule, Product, ProductImage, Order, Ticket
 from app.admin.auth import verify_password, create_access_token, hash_password
-from app.admin.deps import get_current_admin, require_superadmin, scope_clause, assert_visible
+from app.admin.deps import get_current_admin, require_superadmin, require_admin, scope_clause, assert_visible
 from app.countries import normalize_country, is_valid_country, COUNTRIES
 from app.media import media_url, save_upload
 
@@ -42,7 +42,8 @@ async def login(
             status_code=401,
         )
     token = create_access_token({"sub": str(user.id), "role": user.role})
-    resp = RedirectResponse(url="/admin/dashboard", status_code=302)
+    landing = "/admin/inbox" if user.role == "agent" else "/admin/dashboard"
+    resp = RedirectResponse(url=landing, status_code=302)
     resp.set_cookie("admin_token", token, httponly=True, samesite="lax")
     return resp
 
@@ -60,6 +61,8 @@ async def dashboard(
     db: AsyncSession = Depends(get_db),
     current_user: AdminUser = Depends(get_current_admin),
 ):
+    if current_user.role == "agent":
+        return RedirectResponse(url="/admin/inbox", status_code=302)
     conv_count = (await db.execute(
         select(Conversation).where(scope_clause(current_user, Conversation))
     )).scalars().all()
@@ -116,6 +119,45 @@ async def conversation_detail(
     )
 
 
+@router.get("/inbox", response_class=HTMLResponse)
+async def inbox_page(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_admin),
+):
+    result = await db.execute(
+        select(Conversation)
+        .where(scope_clause(current_user, Conversation))
+        .order_by(desc(Conversation.created_at)).limit(50)
+    )
+    convs = result.scalars().all()
+    return templates.TemplateResponse(
+        request=request, name="admin/inbox.html",
+        context={"current_user": current_user, "conversations": convs},
+    )
+
+
+@router.get("/conversations/{conv_id}/messages")
+async def conversation_messages(
+    conv_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_admin),
+):
+    conv = (await db.execute(
+        select(Conversation).where(Conversation.id == conv_id)
+    )).scalar_one_or_none()
+    if conv is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    assert_visible(current_user, conv)
+    msgs = (await db.execute(
+        select(Message).where(Message.conversation_id == conv_id).order_by(Message.created_at)
+    )).scalars().all()
+    return [
+        {"role": m.role, "content": m.content, "tool_name": m.tool_name}
+        for m in msgs
+    ]
+
+
 @router.get("/rules", response_class=HTMLResponse)
 async def rules_page(
     request: Request, db: AsyncSession = Depends(get_db),
@@ -157,7 +199,7 @@ async def delete_rule(
 @router.get("/products", response_class=HTMLResponse)
 async def products_page(
     request: Request, db: AsyncSession = Depends(get_db),
-    current_user: AdminUser = Depends(get_current_admin),
+    current_user: AdminUser = Depends(require_admin),
     category: str | None = None,
 ):
     stmt = select(Product).options(selectinload(Product.images)).order_by(Product.category, Product.sku)
@@ -224,7 +266,7 @@ async def create_product(
     datasheet: UploadFile = File(None), primary_image: UploadFile = File(None),
     gallery_images: list[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
-    current_user: AdminUser = Depends(get_current_admin),
+    current_user: AdminUser = Depends(require_admin),
 ):
     fields = _product_fields_from_form(
         name, sku, category, subcategory, model, wattage, power_kw, capacity_ah,
@@ -256,7 +298,7 @@ async def create_product(
 @router.get("/products/{product_id}/edit", response_class=HTMLResponse)
 async def edit_product_page(
     product_id: int, request: Request, db: AsyncSession = Depends(get_db),
-    current_user: AdminUser = Depends(get_current_admin),
+    current_user: AdminUser = Depends(require_admin),
 ):
     result = await db.execute(
         select(Product).options(selectinload(Product.images)).where(Product.id == product_id)
@@ -285,7 +327,7 @@ async def update_product(
     datasheet: UploadFile = File(None), primary_image: UploadFile = File(None),
     gallery_images: list[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
-    current_user: AdminUser = Depends(get_current_admin),
+    current_user: AdminUser = Depends(require_admin),
 ):
     result = await db.execute(
         select(Product).options(selectinload(Product.images)).where(Product.id == product_id)
@@ -322,7 +364,7 @@ async def update_product(
 @router.post("/products/{product_id}/images/{image_id}/delete")
 async def delete_product_image(
     product_id: int, image_id: int, db: AsyncSession = Depends(get_db),
-    current_user: AdminUser = Depends(get_current_admin),
+    current_user: AdminUser = Depends(require_admin),
 ):
     result = await db.execute(
         select(ProductImage).where(ProductImage.id == image_id, ProductImage.product_id == product_id)
@@ -343,7 +385,7 @@ async def delete_product_image(
 @router.post("/products/{product_id}/delete")
 async def delete_product(
     product_id: int, db: AsyncSession = Depends(get_db),
-    current_user: AdminUser = Depends(get_current_admin),
+    current_user: AdminUser = Depends(require_admin),
 ):
     result = await db.execute(select(Product).where(Product.id == product_id))
     product = result.scalar_one_or_none()
@@ -357,7 +399,7 @@ async def delete_product(
 @router.get("/orders", response_class=HTMLResponse)
 async def orders_page(
     request: Request, db: AsyncSession = Depends(get_db),
-    current_user: AdminUser = Depends(get_current_admin),
+    current_user: AdminUser = Depends(require_admin),
 ):
     result = await db.execute(
         select(Order).where(scope_clause(current_user, Order)).order_by(desc(Order.created_at))
@@ -373,7 +415,7 @@ async def orders_page(
 async def update_order_status(
     order_id: int, status: str = Form(...),
     db: AsyncSession = Depends(get_db),
-    current_user: AdminUser = Depends(get_current_admin),
+    current_user: AdminUser = Depends(require_admin),
 ):
     if status not in ORDER_STATUSES:
         raise HTTPException(status_code=400, detail="Invalid order status")
@@ -389,7 +431,7 @@ async def update_order_status(
 @router.get("/tickets", response_class=HTMLResponse)
 async def tickets_page(
     request: Request, db: AsyncSession = Depends(get_db),
-    current_user: AdminUser = Depends(get_current_admin),
+    current_user: AdminUser = Depends(require_admin),
 ):
     stmt = select(Ticket).order_by(desc(Ticket.created_at))
     if current_user.country is not None:
@@ -410,7 +452,7 @@ async def tickets_page(
 @router.post("/tickets/{ticket_id}/close")
 async def close_ticket(
     ticket_id: int, db: AsyncSession = Depends(get_db),
-    current_user: AdminUser = Depends(get_current_admin),
+    current_user: AdminUser = Depends(require_admin),
 ):
     result = await db.execute(select(Ticket).where(Ticket.id == ticket_id))
     ticket = result.scalar_one_or_none()
@@ -449,9 +491,12 @@ async def create_user(
     if role == "superadmin":
         user_country = None
     else:
-        role = "country_admin"
+        role = "agent" if role == "agent" else "country_admin"
         if not is_valid_country(country):
-            raise HTTPException(status_code=400, detail="A country admin must have a valid country")
+            raise HTTPException(
+                status_code=400,
+                detail="A country admin or agent must have a valid country",
+            )
         user_country = normalize_country(country)
     db.add(AdminUser(
         email=email, password_hash=hash_password(password), role=role, country=user_country,

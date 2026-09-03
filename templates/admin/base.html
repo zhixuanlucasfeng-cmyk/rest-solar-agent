@@ -11,10 +11,13 @@
   <nav class="bg-blue-800 text-white px-6 py-3 flex justify-between items-center">
     <a href="/admin/dashboard" class="font-bold text-lg">RestarSolar Admin</a>
     <div class="flex gap-4 text-sm">
+      <a href="/admin/inbox" class="hover:underline">Inbox</a>
       <a href="/admin/conversations" class="hover:underline">Conversations</a>
+      {% if current_user.role != "agent" %}
       <a href="/admin/products" class="hover:underline">Products</a>
       <a href="/admin/orders" class="hover:underline">Orders</a>
       <a href="/admin/tickets" class="hover:underline">Tickets</a>
+      {% endif %}
       {% if current_user.role == "superadmin" %}
       <a href="/admin/rules" class="hover:underline">Rules</a>
       <a href="/admin/users" class="hover:underline">Users</a>

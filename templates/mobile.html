@@ -26,6 +26,9 @@
   <header>RestarSolar Support</header>
   <div id="offline-banner">No connection — messages will send when reconnected</div>
   <div id="messages"></div>
+  <div id="human-bar" style="text-align:center;padding:6px;background:white;border-top:1px solid #e5e7eb;">
+    <button id="human" style="background:none;border:none;color:#1e40af;font-size:13px;text-decoration:underline;">Talk to a person</button>
+  </div>
   <footer>
     <input id="input" type="text" placeholder="Type a message…" autocomplete="off">
     <button id="send">Send</button>
@@ -58,7 +61,9 @@
           addMsg('assistant', '');
         } else if (data.type === 'token') {
           appendToken(data.text);
-        } else if (data.type === 'agent_message' || data.type === 'status') {
+        } else if (data.type === 'agent_message') {
+          addMsg('assistant', data.text);
+        } else if (data.type === 'status') {
           addMsg('status', data.text);
         }
       };
@@ -89,6 +94,10 @@
       input.value = '';
     }
 
+    document.getElementById('human').onclick = function () {
+      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ action: 'request_human' }));
+      document.getElementById('human-bar').style.display = 'none';
+    };
     document.getElementById('send').onclick = send;
     document.getElementById('input').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') send();

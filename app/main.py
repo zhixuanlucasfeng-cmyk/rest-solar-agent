@@ -39,17 +39,29 @@ async def _seed_admin_users(session: AsyncSession) -> None:
 
     await _ensure(os.getenv("ADMIN_EMAIL", ""), os.getenv("ADMIN_PASSWORD", ""), "superadmin", None)
 
-    raw = os.getenv("SEED_COUNTRY_ADMINS", "")
-    for entry in (e.strip() for e in raw.split(",") if e.strip()):
-        if ":" not in entry:
-            print(f"[seed] skipping malformed SEED_COUNTRY_ADMINS entry: {entry!r}")
-            continue
-        cc, _, pw = entry.partition(":")
-        cc = cc.strip().upper()
-        if not is_valid_country(cc):
-            print(f"[seed] skipping unknown country code: {cc!r}")
-            continue
-        await _ensure(f"{cc.lower()}-admin@restsolar.com", pw.strip(), "country_admin", cc)
+    def _seed_country_users(raw: str, role: str, email_suffix: str):
+        for entry in (e.strip() for e in raw.split(",") if e.strip()):
+            if ":" not in entry:
+                print(f"[seed] skipping malformed entry: {entry!r}")
+                continue
+            key, _, pw = entry.partition(":")
+            key = key.strip().upper()
+            cc = key.split("-")[0]
+            if not is_valid_country(cc):
+                print(f"[seed] skipping unknown country code: {cc!r}")
+                continue
+            yield f"{key.lower()}-{email_suffix}@restsolar.com", pw.strip(), role, cc
+
+    for email, pw, role, cc in _seed_country_users(
+        os.getenv("SEED_COUNTRY_ADMINS", ""), "country_admin", "admin"
+    ):
+        await _ensure(email, pw, role, cc)
+
+    # e.g. SEED_COUNTRY_AGENTS="CM:pw1,CM-2:pw2,NG:pw3" -> cm-agent@, cm-2-agent@, ng-agent@
+    for email, pw, role, cc in _seed_country_users(
+        os.getenv("SEED_COUNTRY_AGENTS", ""), "agent", "agent"
+    ):
+        await _ensure(email, pw, role, cc)
 
     await session.commit()
 

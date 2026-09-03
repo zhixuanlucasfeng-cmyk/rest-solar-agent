@@ -5,7 +5,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.session import get_db
-from app.db.models import Conversation, AdminUser
+from app.db.models import Conversation, AdminUser, Message
 from app.countries import normalize_country
 from app.agent.orchestrator import run_stream
 from app.api.ws_manager import manager
@@ -17,6 +17,46 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 def get_redis():
     return aioredis.from_url(REDIS_URL, decode_responses=True)
+
+
+async def _queue_snapshot(redis, db: AsyncSession, user: AdminUser) -> list[dict]:
+    """Conversations currently waiting for a human or in a live takeover, scoped
+    to the admin's country. ponytail: Redis KEYS scan + per-conv query — fine at
+    a handful of concurrent chats; index the state in a DB column if it grows."""
+    try:
+        keys = await redis.keys("conv:*:mode")
+        keys = list(keys) if keys else []
+    except TypeError:  # mocked redis in tests
+        keys = []
+    items = []
+    for key in keys:
+        mode = await redis.get(key)
+        if mode not in ("waiting", "human"):
+            continue
+        try:
+            conv_id = int(key.split(":")[1])
+        except (IndexError, ValueError):
+            continue
+        conv = (await db.execute(
+            select(Conversation).where(Conversation.id == conv_id)
+        )).scalar_one_or_none()
+        if conv is None:
+            continue
+        if user.country is not None and conv.country != user.country:
+            continue
+        last = (await db.execute(
+            select(Message).where(Message.conversation_id == conv_id)
+            .order_by(Message.created_at.desc()).limit(1)
+        )).scalar_one_or_none()
+        agent = await redis.get(f"conv:{conv_id}:agent")
+        items.append({
+            "conversation_id": conv_id,
+            "country": conv.country,
+            "mode": mode,
+            "agent_id": int(agent) if agent else None,
+            "preview": (last.content[:80] if last else ""),
+        })
+    return items
 
 
 @router.websocket("/ws/admin/{user_id}")
@@ -45,51 +85,70 @@ async def admin_ws(user_id: int, ws: WebSocket, db: AsyncSession = Depends(get_d
         await ws.close(code=4003)
         return
 
-    async def _conv_visible(conv_db_id: int) -> bool:
-        if user.country is None:
-            return True
+    async def _visible_conv(conv_db_id: int):
         conv = (await db.execute(
             select(Conversation).where(Conversation.id == conv_db_id)
         )).scalar_one_or_none()
-        return conv is not None and conv.country == user.country
+        if conv is None:
+            return None
+        if user.country is not None and conv.country != user.country:
+            return None
+        return conv
 
-    await manager.connect_admin(user_id, ws)
+    await manager.connect_admin(user_id, ws, user.country)
     redis = get_redis()
     try:
+        await ws.send_json({
+            "type": "queue_snapshot",
+            "items": await _queue_snapshot(redis, db, user),
+        })
+
         while True:
             text = await ws.receive_text()
             data = json.loads(text)
             action = data.get("action")
 
             if action == "takeover":
-                conv_db_id = int(data["conversation_id"])
-                if not await _conv_visible(conv_db_id):
+                conv = await _visible_conv(int(data["conversation_id"]))
+                if conv is None:
                     continue
-                await redis.set(f"conv:{conv_db_id}:mode", "human")
-                await redis.set(f"conv:{conv_db_id}:agent", str(user_id))
-                await manager.send_to_customer_by_db_id(conv_db_id, {
+                await redis.set(f"conv:{conv.id}:mode", "human")
+                await redis.set(f"conv:{conv.id}:agent", str(user_id))
+                await manager.broadcast_to_admins_in_country(conv.country, {
+                    "type": "handoff_claimed",
+                    "conversation_id": conv.id,
+                    "agent_id": user_id,
+                })
+                await manager.send_to_customer_by_db_id(conv.id, {
                     "type": "status",
                     "text": "You have been connected to a live agent.",
                 })
 
             elif action == "release":
-                conv_db_id = int(data["conversation_id"])
-                if not await _conv_visible(conv_db_id):
+                conv = await _visible_conv(int(data["conversation_id"]))
+                if conv is None:
                     continue
-                await redis.set(f"conv:{conv_db_id}:mode", "ai")
-                await redis.delete(f"conv:{conv_db_id}:agent")
-                await manager.send_to_customer_by_db_id(conv_db_id, {
+                await redis.set(f"conv:{conv.id}:mode", "ai")
+                await redis.delete(f"conv:{conv.id}:agent")
+                await manager.broadcast_to_admins_in_country(conv.country, {
+                    "type": "handoff_closed",
+                    "conversation_id": conv.id,
+                })
+                await manager.send_to_customer_by_db_id(conv.id, {
                     "type": "status",
                     "text": "You have been reconnected to the AI assistant.",
                 })
 
             elif action == "message":
-                conv_db_id = int(data["conversation_id"])
-                if not await _conv_visible(conv_db_id):
+                conv = await _visible_conv(int(data["conversation_id"]))
+                if conv is None:
                     continue
-                await manager.send_to_customer_by_db_id(conv_db_id, {
+                reply = data.get("text", "")
+                db.add(Message(conversation_id=conv.id, role="agent", content=reply))
+                await db.commit()
+                await manager.send_to_customer_by_db_id(conv.id, {
                     "type": "agent_message",
-                    "text": data.get("text", ""),
+                    "text": reply,
                 })
     except WebSocketDisconnect:
         manager.disconnect_admin(user_id)
@@ -125,12 +184,30 @@ async def customer_ws(
         while True:
             text = await ws.receive_text()
             data = json.loads(text)
+            action = data.get("action")
+
+            if action == "request_human":
+                await redis.set(f"conv:{conv.id}:mode", "waiting")
+                await manager.broadcast_to_admins_in_country(conv.country, {
+                    "type": "handoff_request",
+                    "conversation_id": conv.id,
+                    "country": conv.country,
+                })
+                await manager.send_to_customer_by_channel(conversation_id, {
+                    "type": "status",
+                    "text": "Connecting you to our team — please hold on.",
+                })
+                continue
+
             message = data.get("message", "")
 
             # Use DB conv.id for Redis (so admin takeover aligns)
             mode = await redis.get(f"conv:{conv.id}:mode") or "ai"
 
-            if mode == "human":
+            if mode in ("human", "waiting"):
+                # Persist so the agent sees the full thread when they open it.
+                db.add(Message(conversation_id=conv.id, role="user", content=message))
+                await db.commit()
                 agent_id_str = await redis.get(f"conv:{conv.id}:agent")
                 if agent_id_str:
                     await manager.send_to_admin(int(agent_id_str), {
@@ -138,10 +215,17 @@ async def customer_ws(
                         "conversation_id": conv.id,
                         "text": message,
                     })
-                    await manager.send_to_customer_by_channel(conversation_id, {
-                        "type": "status",
-                        "text": "Message sent to your agent.",
+                else:
+                    # still queued — nudge the country's agents again
+                    await manager.broadcast_to_admins_in_country(conv.country, {
+                        "type": "handoff_request",
+                        "conversation_id": conv.id,
+                        "country": conv.country,
                     })
+                await manager.send_to_customer_by_channel(conversation_id, {
+                    "type": "status",
+                    "text": "Message sent to our team.",
+                })
             else:
                 await manager.send_to_customer_by_channel(conversation_id, {"type": "start"})
                 async for token in run_stream(message, session_id, db):

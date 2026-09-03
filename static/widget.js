@@ -32,6 +32,11 @@
           <button id="rs-close" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;">&#x2715;</button>
         </div>
         <div id="rs-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;"></div>
+        <div id="rs-human-bar" style="padding:6px 12px;border-top:1px solid #e5e7eb;text-align:center;">
+          <button id="rs-human" style="background:none;border:none;color:#1e40af;font-size:12px;cursor:pointer;text-decoration:underline;">
+            Talk to a person
+          </button>
+        </div>
         <div style="padding:12px;border-top:1px solid #e5e7eb;display:flex;gap:8px;">
           <input id="rs-input" type="text" placeholder="Type a message…"
             style="flex:1;border:1px solid #d1d5db;border-radius:8px;padding:10px 14px;font-size:16px;outline:none;">
@@ -45,6 +50,7 @@
     document.getElementById('rs-chat-bubble').onclick = openChat;
     document.getElementById('rs-close').onclick = closeChat;
     document.getElementById('rs-send').onclick = sendMessage;
+    document.getElementById('rs-human').onclick = requestHuman;
     document.getElementById('rs-input').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') sendMessage();
     });
@@ -95,6 +101,12 @@
     appendMessage('user', text);
     ws.send(JSON.stringify({ message: text }));
     input.value = '';
+  }
+
+  function requestHuman() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ action: 'request_human' }));
+    document.getElementById('rs-human-bar').style.display = 'none';
   }
 
   let currentAssistantMsg = null;

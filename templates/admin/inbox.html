@@ -1,0 +1,164 @@
+{% extends "admin/base.html" %}
+{% block title %}Inbox{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Live Inbox</h1>
+
+<div class="flex gap-4" style="height:70vh">
+  <!-- Queue -->
+  <div class="w-72 bg-white rounded shadow overflow-y-auto shrink-0">
+    <div class="px-3 py-2 text-xs font-semibold text-gray-500 border-b">WAITING / LIVE</div>
+    <ul id="queue"></ul>
+    <p id="queue-empty" class="p-3 text-sm text-gray-400">No customers waiting.</p>
+  </div>
+
+  <!-- Chat -->
+  <div class="flex-1 bg-white rounded shadow flex flex-col">
+    <div id="chat-head" class="px-4 py-2 border-b flex justify-between items-center">
+      <span id="chat-title" class="font-semibold text-sm text-gray-500">Select a conversation</span>
+      <span class="flex gap-2">
+        <button id="btn-takeover" onclick="takeover()" class="hidden bg-orange-500 text-white px-3 py-1 rounded text-sm">Take over</button>
+        <button id="btn-release" onclick="release()" class="hidden bg-gray-500 text-white px-3 py-1 rounded text-sm">Release to AI</button>
+      </span>
+    </div>
+    <div id="thread" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
+    <div id="reply-bar" class="hidden p-3 border-t flex gap-2">
+      <input id="reply-input" type="text" placeholder="Type your reply…"
+        class="flex-1 border rounded px-3 py-2 text-sm"
+        onkeydown="if(event.key==='Enter')sendReply()">
+      <button onclick="sendReply()" class="bg-blue-700 text-white px-4 py-2 rounded text-sm">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const MY_ID = {{ current_user.id }};
+
+function ding() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    osc.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+  } catch (e) {}
+}
+const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+let ws = null;
+let openConv = null;          // conversation_id currently shown
+const queue = new Map();      // conv_id -> {mode, agent_id, preview, country}
+
+function connect() {
+  ws = new WebSocket(`${proto}://${location.host}/ws/admin/${MY_ID}`);
+  ws.onmessage = (e) => handle(JSON.parse(e.data));
+  ws.onclose = () => setTimeout(connect, 3000);
+}
+
+function handle(m) {
+  if (m.type === 'queue_snapshot') {
+    queue.clear();
+    m.items.forEach(it => queue.set(it.conversation_id, it));
+    renderQueue();
+  } else if (m.type === 'handoff_request') {
+    const cur = queue.get(m.conversation_id) || {};
+    if (cur.mode !== 'human') {
+      queue.set(m.conversation_id, {...cur, conversation_id: m.conversation_id,
+        country: m.country, mode: 'waiting'});
+      ding();
+      renderQueue();
+    }
+  } else if (m.type === 'handoff_claimed') {
+    const cur = queue.get(m.conversation_id) || {conversation_id: m.conversation_id};
+    queue.set(m.conversation_id, {...cur, mode: 'human', agent_id: m.agent_id});
+    renderQueue();
+    if (openConv === m.conversation_id) refreshControls();
+  } else if (m.type === 'handoff_closed') {
+    queue.delete(m.conversation_id);
+    renderQueue();
+    if (openConv === m.conversation_id) refreshControls();
+  } else if (m.type === 'customer_message') {
+    if (openConv === m.conversation_id) addBubble('user', m.text);
+    const it = queue.get(m.conversation_id);
+    if (it) { it.preview = m.text.slice(0, 80); renderQueue(); }
+  }
+}
+
+function renderQueue() {
+  const ul = document.getElementById('queue');
+  ul.innerHTML = '';
+  document.getElementById('queue-empty').style.display = queue.size ? 'none' : 'block';
+  [...queue.values()].forEach(it => {
+    const li = document.createElement('li');
+    const mine = it.agent_id === MY_ID;
+    li.className = 'px-3 py-2 border-b cursor-pointer text-sm hover:bg-gray-50 ' +
+      (it.conversation_id === openConv ? 'bg-blue-50 ' : '');
+    li.innerHTML = `
+      <div class="flex justify-between">
+        <span class="font-medium">#${it.conversation_id} <span class="text-xs text-gray-400">${it.country || ''}</span></span>
+        <span class="text-xs ${it.mode === 'waiting' ? 'text-orange-600' : mine ? 'text-green-600' : 'text-gray-400'}">
+          ${it.mode === 'waiting' ? 'waiting' : mine ? 'you' : 'live'}</span>
+      </div>
+      <div class="text-xs text-gray-500 truncate">${it.preview || ''}</div>`;
+    li.onclick = () => openConversation(it.conversation_id);
+    ul.appendChild(li);
+  });
+}
+
+async function openConversation(convId) {
+  openConv = convId;
+  document.getElementById('chat-title').textContent = `Conversation #${convId}`;
+  const thread = document.getElementById('thread');
+  thread.innerHTML = '';
+  const res = await fetch(`/admin/conversations/${convId}/messages`);
+  if (res.ok) {
+    (await res.json()).forEach(m => {
+      if (m.role === 'tool') return;
+      addBubble(m.role, m.content);
+    });
+  }
+  refreshControls();
+  renderQueue();
+}
+
+function refreshControls() {
+  const it = queue.get(openConv) || {};
+  const mine = it.agent_id === MY_ID && it.mode === 'human';
+  show('btn-takeover', openConv && it.mode === 'waiting');
+  show('btn-release', mine);
+  show('reply-bar', mine);
+}
+
+function show(id, on) { document.getElementById(id).classList.toggle('hidden', !on); }
+
+function addBubble(role, text) {
+  const thread = document.getElementById('thread');
+  const div = document.createElement('div');
+  const cls = role === 'user'
+    ? 'bg-blue-100 ml-auto'
+    : role === 'agent' ? 'bg-green-100' : 'bg-gray-100';
+  div.className = `${cls} rounded px-3 py-2 text-sm max-w-md w-fit`;
+  div.textContent = text;
+  thread.appendChild(div);
+  thread.scrollTop = thread.scrollHeight;
+}
+
+function takeover() {
+  if (!openConv || ws.readyState !== 1) return;
+  ws.send(JSON.stringify({action: 'takeover', conversation_id: openConv}));
+}
+function release() {
+  if (!openConv || ws.readyState !== 1) return;
+  ws.send(JSON.stringify({action: 'release', conversation_id: openConv}));
+}
+function sendReply() {
+  const input = document.getElementById('reply-input');
+  const text = input.value.trim();
+  if (!text || !openConv || ws.readyState !== 1) return;
+  ws.send(JSON.stringify({action: 'message', conversation_id: openConv, text}));
+  addBubble('agent', text);
+  input.value = '';
+}
+
+connect();
+</script>
+{% endblock %}
