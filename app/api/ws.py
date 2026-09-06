@@ -1,6 +1,7 @@
 import json
 import os
 import redis.asyncio as aioredis
+from redis.exceptions import RedisError
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -16,7 +17,13 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 
 def get_redis():
-    return aioredis.from_url(REDIS_URL, decode_responses=True)
+    # ponytail: fail fast (3s) instead of hanging on the OS-level TCP timeout
+    # (30-120s) when REDIS_URL is unset/unreachable — that hang was silently
+    # killing handoff websockets with no error surfaced anywhere.
+    return aioredis.from_url(
+        REDIS_URL, decode_responses=True,
+        socket_connect_timeout=3, socket_timeout=3, retry_on_timeout=False,
+    )
 
 
 async def _queue_snapshot(redis, db: AsyncSession, user: AdminUser) -> list[dict]:
@@ -28,6 +35,8 @@ async def _queue_snapshot(redis, db: AsyncSession, user: AdminUser) -> list[dict
         keys = list(keys) if keys else []
     except TypeError:  # mocked redis in tests
         keys = []
+    except RedisError:
+        return []
     items = []
     for key in keys:
         mode = await redis.get(key)
@@ -112,8 +121,12 @@ async def admin_ws(user_id: int, ws: WebSocket, db: AsyncSession = Depends(get_d
                 conv = await _visible_conv(int(data["conversation_id"]))
                 if conv is None:
                     continue
-                await redis.set(f"conv:{conv.id}:mode", "human")
-                await redis.set(f"conv:{conv.id}:agent", str(user_id))
+                try:
+                    await redis.set(f"conv:{conv.id}:mode", "human")
+                    await redis.set(f"conv:{conv.id}:agent", str(user_id))
+                except RedisError:
+                    await ws.send_json({"type": "error", "text": "Live agent queue is unavailable — try again shortly."})
+                    continue
                 await manager.broadcast_to_admins_in_country(conv.country, {
                     "type": "handoff_claimed",
                     "conversation_id": conv.id,
@@ -128,8 +141,12 @@ async def admin_ws(user_id: int, ws: WebSocket, db: AsyncSession = Depends(get_d
                 conv = await _visible_conv(int(data["conversation_id"]))
                 if conv is None:
                     continue
-                await redis.set(f"conv:{conv.id}:mode", "ai")
-                await redis.delete(f"conv:{conv.id}:agent")
+                try:
+                    await redis.set(f"conv:{conv.id}:mode", "ai")
+                    await redis.delete(f"conv:{conv.id}:agent")
+                except RedisError:
+                    await ws.send_json({"type": "error", "text": "Live agent queue is unavailable — try again shortly."})
+                    continue
                 await manager.broadcast_to_admins_in_country(conv.country, {
                     "type": "handoff_closed",
                     "conversation_id": conv.id,
@@ -187,22 +204,32 @@ async def customer_ws(
             action = data.get("action")
 
             if action == "request_human":
-                await redis.set(f"conv:{conv.id}:mode", "waiting")
-                await manager.broadcast_to_admins_in_country(conv.country, {
-                    "type": "handoff_request",
-                    "conversation_id": conv.id,
-                    "country": conv.country,
-                })
-                await manager.send_to_customer_by_channel(conversation_id, {
-                    "type": "status",
-                    "text": "Connecting you to our team — please hold on.",
-                })
+                try:
+                    await redis.set(f"conv:{conv.id}:mode", "waiting")
+                    await manager.broadcast_to_admins_in_country(conv.country, {
+                        "type": "handoff_request",
+                        "conversation_id": conv.id,
+                        "country": conv.country,
+                    })
+                    await manager.send_to_customer_by_channel(conversation_id, {
+                        "type": "status",
+                        "text": "Connecting you to our team — please hold on.",
+                    })
+                except RedisError:
+                    await manager.send_to_customer_by_channel(conversation_id, {
+                        "type": "status",
+                        "text": "Live agents are unavailable right now — I'll keep helping in the meantime.",
+                    })
                 continue
 
             message = data.get("message", "")
 
-            # Use DB conv.id for Redis (so admin takeover aligns)
-            mode = await redis.get(f"conv:{conv.id}:mode") or "ai"
+            # Use DB conv.id for Redis (so admin takeover aligns). Fail open to
+            # AI mode if Redis is unreachable rather than dropping the socket.
+            try:
+                mode = await redis.get(f"conv:{conv.id}:mode") or "ai"
+            except RedisError:
+                mode = "ai"
 
             if mode in ("human", "waiting"):
                 # Persist so the agent sees the full thread when they open it.
