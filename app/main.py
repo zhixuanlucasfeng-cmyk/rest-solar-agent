@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 
 from app.db.models import Base, AdminUser
 from app.db.session import DATABASE_URL
-from app.admin.auth import hash_password
+from app.admin.auth import hash_password, verify_password
 from app.api.chat import router as chat_router
 from app.api.ws import router as ws_router
 from app.api.products import router as products_router
@@ -22,20 +22,30 @@ from app.media import media_url
 async def _seed_admin_users(session: AsyncSession) -> None:
     """Seed the superadmin and the per-country admins from env vars.
 
-    Idempotent per email; runs on every startup so accounts survive Render's
-    ephemeral disk (free tier sqlite doesn't persist across redeploys).
+    Runs on every startup so accounts survive Render's ephemeral disk (free
+    tier sqlite doesn't persist across redeploys).
+
+    The env vars are the source of truth for passwords: an existing account
+    whose password no longer matches is re-synced on the next restart. That
+    makes rotation a matter of editing the env var and redeploying, but it
+    also means a password changed through the admin UI is overwritten on the
+    next restart — change it in the env var, not the UI.
     """
     from app.countries import is_valid_country
 
     async def _ensure(email: str, password: str, role: str, country: str | None):
         if not email or not password:
             return
-        exists = await session.scalar(select(AdminUser).where(AdminUser.email == email))
-        if exists:
-            return
-        session.add(AdminUser(
-            email=email, password_hash=hash_password(password), role=role, country=country,
-        ))
+        user = await session.scalar(select(AdminUser).where(AdminUser.email == email))
+        if user is None:
+            session.add(AdminUser(
+                email=email, password_hash=hash_password(password), role=role, country=country,
+            ))
+        elif not verify_password(password, user.password_hash):
+            # verify first so an unchanged password doesn't rewrite the row on
+            # every boot (bcrypt salts differ, so re-hashing is never a no-op).
+            user.password_hash = hash_password(password)
+            print(f"[seed] password re-synced from env for {email}")
 
     await _ensure(os.getenv("ADMIN_EMAIL", ""), os.getenv("ADMIN_PASSWORD", ""), "superadmin", None)
 
