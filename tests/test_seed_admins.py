@@ -64,6 +64,24 @@ async def test_changed_env_password_is_resynced_not_skipped(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_env_whitespace_is_stripped(monkeypatch):
+    """A value pasted into Render with a trailing newline must still be typeable."""
+    monkeypatch.setenv("ADMIN_EMAIL", " boss@restsolar.com ")
+    monkeypatch.setenv("ADMIN_PASSWORD", "bosspw\n")
+    monkeypatch.delenv("SEED_COUNTRY_ADMINS", raising=False)
+    monkeypatch.delenv("SEED_COUNTRY_AGENTS", raising=False)
+    Session, engine = await _session()
+    async with Session() as s:
+        await _seed_admin_users(s)
+    async with Session() as s:
+        users = (await s.execute(select(AdminUser))).scalars().all()
+    await engine.dispose()
+
+    assert [u.email for u in users] == ["boss@restsolar.com"]
+    assert verify_password("bosspw", users[0].password_hash)
+
+
+@pytest.mark.asyncio
 async def test_seeds_country_agents(monkeypatch):
     monkeypatch.delenv("ADMIN_EMAIL", raising=False)
     monkeypatch.delenv("ADMIN_PASSWORD", raising=False)

@@ -34,6 +34,9 @@ async def _seed_admin_users(session: AsyncSession) -> None:
     from app.countries import is_valid_country
 
     async def _ensure(email: str, password: str, role: str, country: str | None):
+        # Values pasted into Render's env var UI routinely carry a trailing
+        # space or newline; hashing that produces a password nobody can type.
+        email, password = email.strip(), password.strip()
         if not email or not password:
             return
         user = await session.scalar(select(AdminUser).where(AdminUser.email == email))
