@@ -3,6 +3,16 @@
   const COUNTRY = (document.currentScript && document.currentScript.dataset.country
                    ? document.currentScript.dataset.country
                    : 'CM').toUpperCase();
+  // Backend origin comes from this script's own src, not location.host: the
+  // widget is embedded on the country marketing sites, which are a different
+  // origin than the API. document.currentScript is only readable here, during
+  // initial execution — not later inside connectWS().
+  const BACKEND = (function () {
+    try {
+      const el = document.currentScript;
+      return el && el.src ? new URL(el.src).origin : location.origin;
+    } catch (e) { return location.origin; }
+  })();
   const isMobile = window.innerWidth < 768;
   let ws = null;
   let reconnectDelay = 1000;
@@ -57,8 +67,8 @@
   }
 
   function connectWS() {
-    const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-    ws = new WebSocket(protocol + '://' + location.host + '/ws/' + CONV_ID + '?country=' + encodeURIComponent(COUNTRY));
+    const wsOrigin = BACKEND.replace(/^http/, 'ws');
+    ws = new WebSocket(wsOrigin + '/ws/' + CONV_ID + '?country=' + encodeURIComponent(COUNTRY));
 
     ws.onmessage = function (event) {
       const data = JSON.parse(event.data);
