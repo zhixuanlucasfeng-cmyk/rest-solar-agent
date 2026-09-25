@@ -21,10 +21,13 @@
       </span>
     </div>
     <div id="thread" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
-    <div id="reply-bar" class="hidden p-3 border-t flex gap-2">
-      <input id="reply-input" type="text" placeholder="Type your reply…"
-        class="flex-1 border rounded px-3 py-2 text-sm"
-        onkeydown="if(event.key==='Enter')sendReply()">
+    <div id="reply-bar" class="hidden p-3 border-t flex gap-2 items-end">
+      <div class="flex-1">
+        <textarea id="reply-input" rows="2" placeholder="Type your reply…"
+          class="w-full border rounded px-3 py-2 text-sm resize-y"
+          onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)&&!event.isComposing&&!event.repeat){event.preventDefault();sendReply()}"></textarea>
+        <p class="text-xs text-gray-400 mt-1">Enter for a new line · Ctrl/⌘+Enter to send</p>
+      </div>
       <button onclick="sendReply()" class="bg-blue-700 text-white px-4 py-2 rounded text-sm">Send</button>
     </div>
   </div>
