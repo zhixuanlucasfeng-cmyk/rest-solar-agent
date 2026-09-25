@@ -1,7 +1,7 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
 from app.main import app
-from app.db.models import Product, ProductImage
+from app.db.models import MediaAsset, Product, ProductImage
 from app.db.session import get_db
 
 
@@ -11,7 +11,7 @@ async def client(db):
         yield db
     app.dependency_overrides[get_db] = override_get_db
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
+    async with AsyncClient(transport=transport, base_url="https://agent-backend.test") as c:
         yield c
     app.dependency_overrides.clear()
 
@@ -35,8 +35,8 @@ async def test_list_products_public_no_auth_required(client, db):
     item = data[0]
     assert item["sku"] == "PUB-TEST-1"
     assert item["featured"] is True
-    assert item["image"] == "/static/product_images/PUB-TEST-1.jpg"
-    assert item["images"] == ["/static/product_images/PUB-TEST-1_1.jpg"]
+    assert item["image"] == "https://agent-backend.test/static/product_images/PUB-TEST-1.jpg"
+    assert item["images"] == ["https://agent-backend.test/static/product_images/PUB-TEST-1_1.jpg"]
     assert "duty_rate" not in item
     assert "vat_rate" not in item
 
@@ -70,3 +70,36 @@ async def test_products_feed_country_filter(client, db):
     r_ws = await client.get("/api/products", params={"country": " ng "})
     skus_ws = {p["sku"] for p in r_ws.json()}
     assert skus_ws == {"SH-1", "NG-1"}
+
+
+@pytest.mark.asyncio
+async def test_products_feed_returns_website_ready_cm_product(client, db):
+    primary_image = MediaAsset(kind="image", content_type="image/jpeg", data=b"primary", filename="panel.jpg")
+    gallery_image = MediaAsset(kind="image", content_type="image/jpeg", data=b"gallery", filename="panel-gallery.jpg")
+    datasheet = MediaAsset(kind="datasheet", content_type="application/pdf", data=b"datasheet", filename="panel.pdf")
+    db.add_all([primary_image, gallery_image, datasheet])
+    await db.flush()
+
+    product = Product(
+        name="CM Panel", sku="CM-PANEL-1", category="solar_panels", country="CM", stock=7,
+        image_asset_id=primary_image.id, datasheet_asset_id=datasheet.id,
+    )
+    db.add(product)
+    await db.flush()
+    db.add(ProductImage(product_id=product.id, path="unused.jpg", asset_id=gallery_image.id, sort_order=0))
+    await db.commit()
+
+    response = await client.get("/api/products?country=CM")
+
+    assert response.status_code == 200
+    item = response.json()[0]
+    assert item["id"] == "CM-PANEL-1"
+    assert item["country"] == "CM"
+    assert item["stock"] == 7
+    assert item["price_cny"] is None
+    assert item["price_xaf"] is None
+    assert item["image"] == f"https://agent-backend.test/media/{primary_image.id}"
+    assert item["images"] == [f"https://agent-backend.test/media/{gallery_image.id}"]
+    assert item["datasheet"] == f"https://agent-backend.test/media/{datasheet.id}"
+    for media_url in [item["image"], *item["images"], item["datasheet"]]:
+        assert (await client.get(media_url)).status_code == 200
