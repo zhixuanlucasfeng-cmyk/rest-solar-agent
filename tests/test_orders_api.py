@@ -168,6 +168,39 @@ async def test_create_order_aggregates_duplicate_skus_before_stock_check(client,
 
 
 @pytest.mark.asyncio
+async def test_create_order_retries_number_conflict_and_decrements_stock_once(
+    client, db, monkeypatch
+):
+    db.add_all([
+        Product(name="Nigeria Panel", sku="NG-PANEL", country="NG", stock=5),
+        Order(
+            order_number="NG-CONFLICT",
+            country="NG",
+            customer_name="Earlier Customer",
+            contact="earlier@example.com",
+            items="1x OLD — Earlier order",
+            status="pending",
+        ),
+    ])
+    await db.commit()
+    generated_numbers = iter(["NG-CONFLICT", "NG-20990101-002"])
+
+    async def number_with_one_conflict(_db, _country):
+        return next(generated_numbers)
+
+    monkeypatch.setattr("app.api.orders.next_order_number", number_with_one_conflict)
+
+    response = await client.post("/api/orders", json=order_payload())
+
+    assert response.status_code == 201
+    assert response.json()["order_number"] == "NG-20990101-002"
+    orders = (await db.scalars(select(Order).order_by(Order.id))).all()
+    product = await db.scalar(select(Product).where(Product.sku == "NG-PANEL"))
+    assert [order.order_number for order in orders] == ["NG-CONFLICT", "NG-20990101-002"]
+    assert product.stock == 3
+
+
+@pytest.mark.asyncio
 async def test_create_order_links_only_same_country_session(client, db):
     matching = Conversation(session_id="same-country", country="NG")
     cross_country = Conversation(session_id="other-country", country="ML")

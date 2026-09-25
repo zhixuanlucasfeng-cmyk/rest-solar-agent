@@ -50,5 +50,19 @@ The warnings are existing Python 3.13 deprecation warnings for `datetime.utcnow(
 
 ## Concerns
 
-- `next_order_number` remains count-based as required. Concurrent requests that compute the same number are protected by the existing unique constraint; one request may receive the endpoint's `409` save-conflict response rather than being retried.
+- `next_order_number` remains count-based as required. The endpoint now retries an order-number unique conflict up to three transaction attempts; sustained conflicts still return `409`.
 - PostgreSQL enforces the row lock; SQLite accepts but does not enforce `FOR UPDATE`, so the focused test suite verifies behavior but not live PostgreSQL lock contention.
+
+## Review fix round 1
+
+The review identified that requests locking different product rows could concurrently calculate the same count-based order number. The losing request previously rolled back and immediately returned `409`.
+
+Added a focused RED test that forces the first generated number to conflict with an existing order. Before the fix it returned `409`; after the fix it returns `201`, creates exactly one new order, and decrements tracked inventory exactly once.
+
+The order transaction now retries at most three times only for SQLAlchemy `IntegrityError`. Each failed attempt rolls back, then reruns the product `SELECT ... FOR UPDATE`, stock validation, conversation lookup, number generation, and ORM object creation. HTTP errors and other exceptions are rolled back without retry.
+
+Review-fix regression result:
+
+```text
+58 passed, 273 warnings in 17.59s
+```

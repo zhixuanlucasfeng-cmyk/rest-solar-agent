@@ -2,6 +2,7 @@ from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.countries import is_valid_country, normalize_country
@@ -10,6 +11,7 @@ from app.db.session import get_db
 from app.tools.order import next_order_number
 
 router = APIRouter()
+MAX_ORDER_ATTEMPTS = 3
 
 
 @router.post("/api/orders", status_code=status.HTTP_201_CREATED)
@@ -60,78 +62,86 @@ async def create_order(
         raise HTTPException(status_code=400, detail="notes must be a string")
     notes = notes.strip() or None if isinstance(notes, str) else None
 
-    try:
-        products = (
-            await db.scalars(
-                select(Product)
-                .where(
-                    Product.sku.in_(quantities),
-                    or_(Product.country.is_(None), Product.country == country),
+    for attempt in range(MAX_ORDER_ATTEMPTS):
+        try:
+            products = (
+                await db.scalars(
+                    select(Product)
+                    .where(
+                        Product.sku.in_(quantities),
+                        or_(Product.country.is_(None), Product.country == country),
+                    )
+                    .with_for_update()
                 )
-                .with_for_update()
-            )
-        ).all()
-        products_by_sku = {product.sku: product for product in products}
-        unavailable = [sku for sku in quantities if sku not in products_by_sku]
-        if unavailable:
-            raise HTTPException(
-                status_code=404,
-                detail=f"SKU unavailable for {country}: {', '.join(unavailable)}",
-            )
-
-        for sku, qty in quantities.items():
-            product = products_by_sku[sku]
-            if product.country is not None and product.stock < qty:
-                raise HTTPException(status_code=409, detail=f"Insufficient stock for SKU {sku}")
-
-        conversation_id = None
-        if session_id is not None:
-            conversation_id = await db.scalar(
-                select(Conversation.id)
-                .where(
-                    Conversation.session_id == session_id,
-                    Conversation.country == country,
+            ).all()
+            products_by_sku = {product.sku: product for product in products}
+            unavailable = [sku for sku in quantities if sku not in products_by_sku]
+            if unavailable:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"SKU unavailable for {country}: {', '.join(unavailable)}",
                 )
-                .order_by(Conversation.id.desc())
-                .limit(1)
+
+            for sku, qty in quantities.items():
+                product = products_by_sku[sku]
+                if product.country is not None and product.stock < qty:
+                    raise HTTPException(status_code=409, detail=f"Insufficient stock for SKU {sku}")
+
+            conversation_id = None
+            if session_id is not None:
+                conversation_id = await db.scalar(
+                    select(Conversation.id)
+                    .where(
+                        Conversation.session_id == session_id,
+                        Conversation.country == country,
+                    )
+                    .order_by(Conversation.id.desc())
+                    .limit(1)
+                )
+
+            number = await next_order_number(db, country)
+            item_snapshot = "\n".join(
+                f"{qty}x {sku} — {products_by_sku[sku].name}"
+                for sku, qty in quantities.items()
             )
+            order = Order(
+                order_number=number,
+                country=country,
+                conversation_id=conversation_id,
+                customer_name=customer_name,
+                contact=contact,
+                items=item_snapshot,
+                notes=notes,
+                status="pending",
+            )
+            db.add(order)
 
-        number = await next_order_number(db, country)
-        item_snapshot = "\n".join(
-            f"{qty}x {sku} — {products_by_sku[sku].name}"
-            for sku, qty in quantities.items()
-        )
-        order = Order(
-            order_number=number,
-            country=country,
-            conversation_id=conversation_id,
-            customer_name=customer_name,
-            contact=contact,
-            items=item_snapshot,
-            notes=notes,
-            status="pending",
-        )
-        db.add(order)
+            for sku, qty in quantities.items():
+                product = products_by_sku[sku]
+                if product.country is not None:
+                    product.stock -= qty
 
-        for sku, qty in quantities.items():
-            product = products_by_sku[sku]
-            if product.country is not None:
-                product.stock -= qty
+            await db.flush()
+            await db.commit()
+        except IntegrityError as exc:
+            await db.rollback()
+            if attempt == MAX_ORDER_ATTEMPTS - 1:
+                raise HTTPException(status_code=409, detail="Order could not be saved") from exc
+            continue
+        except HTTPException:
+            await db.rollback()
+            raise
+        except Exception as exc:
+            await db.rollback()
+            raise HTTPException(status_code=409, detail="Order could not be saved") from exc
 
-        await db.flush()
-        await db.commit()
-    except HTTPException:
-        await db.rollback()
-        raise
-    except Exception as exc:
-        await db.rollback()
-        raise HTTPException(status_code=409, detail="Order could not be saved") from exc
+        return {
+            "order_number": number,
+            "status": "pending",
+            "confirmation": (
+                f"Order {number} recorded. The {country} team will contact {contact} "
+                "to confirm details and pricing."
+            ),
+        }
 
-    return {
-        "order_number": number,
-        "status": "pending",
-        "confirmation": (
-            f"Order {number} recorded. The {country} team will contact {contact} "
-            "to confirm details and pricing."
-        ),
-    }
+    raise HTTPException(status_code=409, detail="Order could not be saved")
