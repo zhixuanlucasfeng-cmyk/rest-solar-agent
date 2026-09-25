@@ -14,6 +14,7 @@ from app.admin.auth import hash_password, verify_password
 from app.api.chat import router as chat_router
 from app.api.ws import router as ws_router
 from app.api.products import router as products_router
+from app.api.orders import router as orders_router
 from app.api.media import router as media_router
 from app.admin.routes import router as admin_router
 from app.media import media_url
@@ -108,6 +109,7 @@ templates.env.globals["media_url"] = media_url
 app.include_router(chat_router)
 app.include_router(ws_router)
 app.include_router(products_router)
+app.include_router(orders_router)
 app.include_router(media_router)
 app.include_router(admin_router)
 
