@@ -1,10 +1,11 @@
 {% extends "admin/base.html" %}
 {% block title %}Edit Product{% endblock %}
+{% block page_header %}<div class="page-head"><div><span class="page-kicker">Product record · {{ p.sku }}</span><h1>Edit product</h1><p>{{ p.name }} · {{ p.country or 'Shared catalogue' }}</p></div><a href="/admin/products" class="btn btn-secondary">Back to products</a></div>{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">Edit Product — {{ p.name }}</h1>
 
 <form action="/admin/products/{{ p.id }}/edit" method="post" enctype="multipart/form-data"
-      class="bg-white rounded shadow p-4 mb-6 grid grid-cols-3 gap-3 max-w-3xl">
+      class="record-form bg-white p-6 mb-6 grid grid-cols-3 gap-3 max-w-4xl border">
+  <h2 class="col-span-3 text-lg font-bold text-slate-800 border-b pb-3">Commercial</h2>
   <input name="name" placeholder="Name" required value="{{ p.name }}" class="border rounded px-3 py-2 text-sm col-span-2">
   <input name="sku" placeholder="SKU" required value="{{ p.sku }}" class="border rounded px-3 py-2 text-sm">
 
@@ -15,6 +16,7 @@
   <input name="subcategory" placeholder="Subcategory" value="{{ p.subcategory or '' }}" class="border rounded px-3 py-2 text-sm">
   <input name="model" placeholder="Model" value="{{ p.model or '' }}" class="border rounded px-3 py-2 text-sm">
 
+  <h2 class="col-span-3 text-lg font-bold text-slate-800 border-b pb-3 mt-4">Specifications</h2>
   <input name="wattage" placeholder="Wattage" value="{{ p.wattage or '' }}" class="border rounded px-3 py-2 text-sm">
   <input name="power_kw" placeholder="Power (kW)" value="{{ p.power_kw or '' }}" class="border rounded px-3 py-2 text-sm">
   <input name="capacity_ah" placeholder="Capacity (Ah)" value="{{ p.capacity_ah or '' }}" class="border rounded px-3 py-2 text-sm">
@@ -38,6 +40,7 @@
   <textarea name="features" placeholder="Features (one per line)" rows="2" class="border rounded px-3 py-2 text-sm col-span-3">{{ p.features or '' }}</textarea>
   <textarea name="use_cases" placeholder="Use cases" rows="2" class="border rounded px-3 py-2 text-sm col-span-3">{{ p.use_cases or '' }}</textarea>
 
+  <h2 class="col-span-3 text-lg font-bold text-slate-800 border-b pb-3 mt-4">Documents &amp; media</h2>
   <label class="text-xs text-gray-500 col-span-3 -mb-2">
     {% set ds = media_url(p.datasheet_asset_id, p.datasheet_path) %}
     Datasheet (PDF) {% if ds %}— <a href="{{ ds }}" target="_blank" class="text-blue-700 hover:underline">current file ↓</a>{% endif %}

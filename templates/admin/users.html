@@ -1,7 +1,6 @@
 {% extends "admin/base.html" %}
 {% block title %}Users{% endblock %}
-{% block content %}
-<h1 class="text-2xl font-bold mb-4">Admin Users</h1>
+{% block page_header %}<div class="page-head"><div><span class="page-kicker">Access control</span><h1>Admin users</h1><p>Assign each employee a role and country scope.</p></div></div>{% endblock %}{% block content %}
 <form action="/admin/users" method="post" class="bg-white rounded shadow p-4 mb-6 grid grid-cols-3 gap-3 max-w-xl">
   <input name="email" type="email" placeholder="Email" required class="border rounded px-3 py-2 text-sm">
   <input name="password" type="password" placeholder="Password" required class="border rounded px-3 py-2 text-sm">
@@ -19,7 +18,7 @@
   </select>
   <button type="submit" class="bg-blue-800 text-white py-2 rounded text-sm col-span-3">Create User</button>
 </form>
-<table class="w-full bg-white rounded shadow text-sm">
+<div class="ops-table-wrap"><table class="ops-table">
   <thead class="bg-gray-50 text-left">
     <tr><th class="p-3">Email</th><th class="p-3">Role</th><th class="p-3">Country</th><th class="p-3">Created</th></tr>
   </thead>
@@ -33,5 +32,5 @@
     </tr>
     {% endfor %}
   </tbody>
-</table>
+</table></div>
 {% endblock %}

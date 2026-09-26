@@ -1,15 +1,6 @@
-{% extends "admin/base.html" %}
-{% block title %}Dashboard{% endblock %}
+{% extends "admin/base.html" %}{% block title %}Operations overview{% endblock %}
+{% block page_header %}<div class="page-head"><div><span class="page-kicker">Country operations · Today’s work</span><h1>Dashboard</h1><p>Customer conversations, open service work, products and orders for your assigned market.</p></div><a href="/admin/inbox" class="btn btn-accent">Open live inbox</a></div>{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-6">Dashboard</h1>
-<div class="grid grid-cols-2 gap-4 max-w-lg">
-  <div class="bg-white rounded shadow p-6 text-center">
-    <div class="text-4xl font-bold text-blue-800">{{ conv_count }}</div>
-    <div class="text-gray-500 mt-1 text-sm">Total Conversations</div>
-  </div>
-  <div class="bg-white rounded shadow p-6 text-center">
-    <div class="text-4xl font-bold text-orange-500">{{ open_tickets }}</div>
-    <div class="text-gray-500 mt-1 text-sm">Open Tickets</div>
-  </div>
-</div>
+<section class="metric-grid" aria-label="Work totals"><div class="metric-card"><div class="metric-card__value text-blue-800">{{ conv_count }}</div><span>Total conversations</span></div><div class="metric-card"><div class="metric-card__value text-orange-500">{{ open_tickets }}</div><span>Open tickets</span></div></section>
+{% if current_user.role != "agent" %}<section class="action-grid" style="margin-top:28px"><article class="action-card"><h2>Products &amp; stock</h2><p>Add products, update availability and keep the public catalogue accurate.</p><a href="/admin/products" class="btn btn-secondary">Manage products</a></article><article class="action-card"><h2>Orders</h2><p>Review new orders and keep fulfilment status current for the local team.</p><a href="/admin/orders" class="btn btn-secondary">Manage orders</a></article></section>{% endif %}
 {% endblock %}

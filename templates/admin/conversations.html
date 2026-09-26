@@ -1,8 +1,7 @@
 {% extends "admin/base.html" %}
 {% block title %}Conversations{% endblock %}
-{% block content %}
-<h1 class="text-2xl font-bold mb-6">Conversations</h1>
-<table class="w-full bg-white rounded shadow text-sm">
+{% block page_header %}<div class="page-head"><div><span class="page-kicker">Customer history</span><h1>Conversations</h1><p>Review earlier customer messages for your assigned market.</p></div></div>{% endblock %}{% block content %}
+<div class="ops-table-wrap"><table class="ops-table">
   <thead class="bg-gray-50 text-left">
     <tr>
       <th class="p-3">ID</th><th class="p-3">Session</th>
@@ -20,5 +19,5 @@
     </tr>
     {% endfor %}
   </tbody>
-</table>
+</table></div>
 {% endblock %}

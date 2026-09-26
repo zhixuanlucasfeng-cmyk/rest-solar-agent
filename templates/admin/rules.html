@@ -1,7 +1,6 @@
 {% extends "admin/base.html" %}
 {% block title %}Rules{% endblock %}
-{% block content %}
-<h1 class="text-2xl font-bold mb-4">Rules</h1>
+{% block page_header %}<div class="page-head"><div><span class="page-kicker">Assistant controls</span><h1>Rules</h1><p>Maintain approved response rules without changing country access.</p></div></div>{% endblock %}{% block content %}
 <form action="/admin/rules" method="post" class="bg-white rounded shadow p-4 mb-6 grid grid-cols-2 gap-3 max-w-2xl">
   <input name="name" placeholder="Rule name" required class="border rounded px-3 py-2 text-sm col-span-2">
   <input name="trigger" placeholder="Trigger keywords (comma-separated)" class="border rounded px-3 py-2 text-sm">
@@ -9,7 +8,7 @@
   <textarea name="body" placeholder="Rule body / response" required class="border rounded px-3 py-2 text-sm col-span-2 h-24"></textarea>
   <button type="submit" class="bg-blue-800 text-white py-2 rounded text-sm col-span-2">Add Rule</button>
 </form>
-<table class="w-full bg-white rounded shadow text-sm">
+<div class="ops-table-wrap"><table class="ops-table">
   <thead class="bg-gray-50 text-left">
     <tr><th class="p-3">Priority</th><th class="p-3">Name</th><th class="p-3">Trigger</th><th class="p-3"></th></tr>
   </thead>
@@ -21,11 +20,11 @@
       <td class="p-3 text-gray-500">{{ r.trigger }}</td>
       <td class="p-3">
         <form action="/admin/rules/{{ r.id }}/delete" method="post" class="inline">
-          <button type="submit" class="text-red-500 hover:underline text-xs">Delete</button>
+          <button type="submit" class="danger-action px-3 py-1 text-xs">Delete</button>
         </form>
       </td>
     </tr>
     {% endfor %}
   </tbody>
-</table>
+</table></div>
 {% endblock %}

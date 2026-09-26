@@ -1,27 +1,2 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Login — RestarSolar</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
-  <div class="bg-white p-8 rounded shadow w-full max-w-sm">
-    <h1 class="text-2xl font-bold mb-6 text-blue-800">RestarSolar Admin</h1>
-    {% if error %}
-    <div class="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm">{{ error }}</div>
-    {% endif %}
-    <form action="/admin/login" method="post" class="flex flex-col gap-4">
-      <input type="email" name="email" placeholder="Email" required
-             class="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-      <input type="password" name="password" placeholder="Password" required
-             class="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-      <button type="submit"
-              class="bg-blue-800 text-white py-2 rounded hover:bg-blue-700 text-sm font-medium">
-        Sign in
-      </button>
-    </form>
-  </div>
-</body>
-</html>
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Sign in — Restar Solar Operations</title><link rel="stylesheet" href="/static/admin.css"></head>
+<body><main class="login-page"><section class="login-record"><header><img src="/static/logo.svg" alt="Restar Solar"><span>EMPLOYEE OPERATIONS</span></header><div class="login-copy"><span class="page-kicker">Secure access</span><h1>Manage your local market.</h1><p>Products, stock, orders and customer conversations are restricted to the country assigned to your account.</p></div>{% if error %}<div class="login-error">{{ error }}</div>{% endif %}<form action="/admin/login" method="post" class="login-form"><label>Email<input type="email" name="email" autocomplete="username" required></label><label>Password<input type="password" name="password" autocomplete="current-password" required></label><button type="submit" class="btn">Sign in</button></form></section></main></body></html>

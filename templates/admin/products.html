@@ -1,9 +1,10 @@
 {% extends "admin/base.html" %}
 {% block title %}Products{% endblock %}
+{% block page_header %}<div class="page-head"><div><span class="page-kicker">Catalogue operations</span><h1>Products &amp; stock</h1><p>Items shown here belong to your assigned country. Shared catalogue items remain read-only for country teams.</p></div></div>{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">Products</h1>
 
-<form action="/admin/products" method="post" enctype="multipart/form-data" class="bg-white rounded shadow p-4 mb-6 grid grid-cols-3 gap-3 max-w-3xl">
+<form action="/admin/products" method="post" enctype="multipart/form-data" class="record-form bg-white p-6 mb-8 grid grid-cols-3 gap-3 max-w-4xl border">
+  <h2 class="col-span-3 text-lg font-bold text-slate-800 border-b pb-3">Add product</h2>
   <input name="name" placeholder="Name" required class="border rounded px-3 py-2 text-sm col-span-2">
   <input name="sku" placeholder="SKU" required class="border rounded px-3 py-2 text-sm">
 
@@ -70,7 +71,7 @@
   {% endfor %}
 </div>
 
-<table class="w-full bg-white rounded shadow text-sm">
+<div class="ops-table-wrap"><table class="ops-table">
   <thead class="bg-gray-50 text-left">
     <tr>
       <th class="p-3"></th>
@@ -139,5 +140,5 @@
     </tr>
     {% endfor %}
   </tbody>
-</table>
+</table></div>
 {% endblock %}
