@@ -10,6 +10,7 @@ from app.admin.auth import verify_password, create_access_token, hash_password
 from app.admin.deps import get_current_admin, require_superadmin, require_admin, scope_clause, assert_visible
 from app.countries import normalize_country, is_valid_country, COUNTRIES
 from app.media import media_url, save_upload
+from app.product_catalog import PRODUCT_STATUSES, validate_product_values
 
 router = APIRouter(prefix="/admin")
 templates = Jinja2Templates(directory="templates")
@@ -201,22 +202,32 @@ async def products_page(
     request: Request, db: AsyncSession = Depends(get_db),
     current_user: AdminUser = Depends(require_admin),
     category: str | None = None,
+    status: str = "active",
 ):
+    if not status:
+        status = "active"
+    if status not in PRODUCT_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid product status")
     stmt = select(Product).options(selectinload(Product.images)).order_by(Product.category, Product.sku)
     if current_user.country is not None:
         stmt = stmt.where(or_(Product.country.is_(None), Product.country == current_user.country))
     if category:
         stmt = stmt.where(Product.category == category)
+    stmt = stmt.where(Product.status == status)
     result = await db.execute(stmt)
     products = result.scalars().all()
 
-    count_stmt = select(func.count()).select_from(Product)
-    cats_stmt = select(Product.category).distinct()
+    count_stmt = select(func.count()).select_from(Product).where(Product.status == status)
+    cats_stmt = select(Product.category).where(Product.status == status).distinct()
+    status_count_stmt = select(Product.status, func.count()).group_by(Product.status)
     if current_user.country is not None:
         scope = or_(Product.country.is_(None), Product.country == current_user.country)
         count_stmt = count_stmt.where(scope)
         cats_stmt = cats_stmt.where(scope)
+        status_count_stmt = status_count_stmt.where(scope)
     total_count = await db.scalar(count_stmt)
+    status_counts = {state: 0 for state in PRODUCT_STATUSES}
+    status_counts.update((await db.execute(status_count_stmt)).all())
 
     cats_result = await db.execute(cats_stmt)
     categories = sorted(c for (c,) in cats_result.all() if c)
@@ -227,20 +238,24 @@ async def products_page(
             "current_user": current_user, "products": products, "total_count": total_count,
             "categories": categories, "selected_category": category,
             "category_choices": PRODUCT_CATEGORIES,
+            "selected_status": status, "status_counts": status_counts,
+            "product_statuses": PRODUCT_STATUSES,
         },
     )
 
 
 def _product_fields_from_form(
     name, sku, category, subcategory, model, wattage, power_kw, capacity_ah,
-    capacity_kwh, voltage, dimensions, price_cny, price_xaf, duty_rate, vat_rate,
-    weight_kg, stock, featured, features, use_cases,
+    capacity_kwh, voltage, dimensions, price_cny, price_xaf, price_local, status,
+    duty_rate, vat_rate, weight_kg, stock, featured, features, use_cases,
 ) -> dict:
+    validate_product_values(status=status, price_local=price_local, price_cny=price_cny, stock=stock)
     return dict(
         name=name, sku=sku.upper(), category=category or None, subcategory=subcategory or None,
         model=model or None, wattage=wattage or None, power_kw=power_kw or None,
         capacity_ah=capacity_ah or None, capacity_kwh=capacity_kwh or None, voltage=voltage or None,
         dimensions=dimensions or None, price_cny=price_cny, price_xaf=price_xaf,
+        price_local=price_local, status=status,
         duty_rate=duty_rate, vat_rate=vat_rate, weight_kg=weight_kg, stock=stock,
         featured=featured, features=features or None, use_cases=use_cases or None,
     )
@@ -260,6 +275,7 @@ async def create_product(
     wattage: str = Form(None), power_kw: str = Form(None), capacity_ah: str = Form(None),
     capacity_kwh: str = Form(None), voltage: str = Form(None), dimensions: str = Form(None),
     price_cny: float = Form(None), price_xaf: float = Form(None),
+    price_local: float | None = Form(None), status: str = Form("active"),
     duty_rate: float = Form(0.30), vat_rate: float = Form(0.1925),
     weight_kg: float = Form(None), stock: int = Form(0),
     featured: bool = Form(False), features: str = Form(None), use_cases: str = Form(None),
@@ -270,13 +286,15 @@ async def create_product(
 ):
     fields = _product_fields_from_form(
         name, sku, category, subcategory, model, wattage, power_kw, capacity_ah,
-        capacity_kwh, voltage, dimensions, price_cny, price_xaf, duty_rate, vat_rate,
-        weight_kg, stock, featured, features, use_cases,
+        capacity_kwh, voltage, dimensions, price_cny, price_xaf, price_local, status,
+        duty_rate, vat_rate, weight_kg, stock, featured, features, use_cases,
     )
     product = Product(**fields)
     if current_user.country is not None:
         product.country = current_user.country
-    elif country:
+    elif country and country.strip():
+        if not is_valid_country(country):
+            raise HTTPException(status_code=400, detail="Invalid country")
         product.country = normalize_country(country)
 
     if datasheet and datasheet.filename:
@@ -316,11 +334,12 @@ async def edit_product_page(
 @router.post("/products/{product_id}/edit")
 async def update_product(
     product_id: int, request: Request,
-    name: str = Form(...), sku: str = Form(...),
+    name: str = Form(...), sku: str = Form(...), country: str | None = Form(None),
     category: str = Form(None), subcategory: str = Form(None), model: str = Form(None),
     wattage: str = Form(None), power_kw: str = Form(None), capacity_ah: str = Form(None),
     capacity_kwh: str = Form(None), voltage: str = Form(None), dimensions: str = Form(None),
     price_cny: float = Form(None), price_xaf: float = Form(None),
+    price_local: float | None = Form(None), status: str = Form("active"),
     duty_rate: float = Form(0.30), vat_rate: float = Form(0.1925),
     weight_kg: float = Form(None), stock: int = Form(0),
     featured: bool = Form(False), features: str = Form(None), use_cases: str = Form(None),
@@ -339,9 +358,13 @@ async def update_product(
 
     fields = _product_fields_from_form(
         name, sku, category, subcategory, model, wattage, power_kw, capacity_ah,
-        capacity_kwh, voltage, dimensions, price_cny, price_xaf, duty_rate, vat_rate,
-        weight_kg, stock, featured, features, use_cases,
+        capacity_kwh, voltage, dimensions, price_cny, price_xaf, price_local, status,
+        duty_rate, vat_rate, weight_kg, stock, featured, features, use_cases,
     )
+    if current_user.role == "superadmin" and country is not None:
+        if country.strip() and not is_valid_country(country):
+            raise HTTPException(status_code=400, detail="Invalid country")
+        product.country = normalize_country(country) if country.strip() else None
     for key, value in fields.items():
         setattr(product, key, value)
 
@@ -359,6 +382,22 @@ async def update_product(
 
     await db.commit()
     return RedirectResponse(url="/admin/products", status_code=302)
+
+
+@router.post("/products/{product_id}/status")
+async def update_product_status(
+    product_id: int, status: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: AdminUser = Depends(require_admin),
+):
+    validate_product_values(status=status, price_local=None, price_cny=None, stock=0)
+    product = await db.scalar(select(Product).where(Product.id == product_id))
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    _assert_product_writable(current_user, product)
+    product.status = status
+    await db.commit()
+    return RedirectResponse(url=f"/admin/products?status={status}", status_code=302)
 
 
 @router.post("/products/{product_id}/images/{image_id}/delete")
@@ -385,14 +424,14 @@ async def delete_product_image(
 @router.post("/products/{product_id}/delete")
 async def delete_product(
     product_id: int, db: AsyncSession = Depends(get_db),
-    current_user: AdminUser = Depends(require_admin),
+    current_user: AdminUser = Depends(require_superadmin),
 ):
     result = await db.execute(select(Product).where(Product.id == product_id))
     product = result.scalar_one_or_none()
-    if product:
-        _assert_product_writable(current_user, product)
-        await db.delete(product)
-        await db.commit()
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    await db.delete(product)
+    await db.commit()
     return RedirectResponse(url="/admin/products", status_code=302)
 
 

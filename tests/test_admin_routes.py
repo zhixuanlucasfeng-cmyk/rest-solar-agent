@@ -2,7 +2,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.main import app
-from app.db.models import Base, AdminUser, Conversation, Order, Ticket, ProductImage
+from app.db.models import Base, AdminUser, Conversation, Order, Ticket, Product, ProductImage
 from app.admin.auth import hash_password, create_access_token
 
 
@@ -543,3 +543,184 @@ async def test_orders_page_shows_contact_and_items(scoped_env):
         r = await c.get("/admin/orders")
     assert b"+234 800 111 2222" in r.content
     assert b"2x RTM210M panel" in r.content
+
+
+@pytest.fixture
+async def product_lifecycle_env():
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    Session = async_sessionmaker(engine, expire_on_commit=False)
+    async with Session() as s:
+        su = AdminUser(email="su-products@test.com", password_hash=hash_password("p"), role="superadmin")
+        ng = AdminUser(email="ng-products@test.com", password_hash=hash_password("p"), role="country_admin", country="NG")
+        s.add_all([su, ng])
+        await s.flush()
+        s.add_all([
+            Product(name="Shared", sku="SHARED-LIFE", country=None, status="active"),
+            Product(name="Nigeria", sku="NG-LIFE", country="NG", status="active", price_local=100, stock=3),
+            Product(name="Cameroon", sku="CM-LIFE", country="CM", status="active"),
+        ])
+        await s.commit()
+        su_token = create_access_token({"sub": str(su.id), "role": su.role})
+        ng_token = create_access_token({"sub": str(ng.id), "role": ng.role})
+
+    from app.db.session import get_db
+    async def override_get_db():
+        async with Session() as s:
+            yield s
+    app.dependency_overrides[get_db] = override_get_db
+    transport = ASGITransport(app=app)
+
+    def client(token):
+        return AsyncClient(transport=transport, base_url="http://test", cookies={"admin_token": token})
+
+    yield client, su_token, ng_token, Session
+    app.dependency_overrides.clear()
+    await engine.dispose()
+
+
+async def _product_by_sku(Session, sku):
+    from sqlalchemy import select
+    async with Session() as s:
+        return await s.scalar(select(Product).where(Product.sku == sku))
+
+
+@pytest.mark.asyncio
+async def test_country_admin_creates_product_in_own_country(product_lifecycle_env):
+    client, _, ng_token, Session = product_lifecycle_env
+    async with client(ng_token) as c:
+        response = await c.post("/admin/products", data={
+            "name": "New Nigerian panel", "sku": "NG-NEW", "country": "CM",
+            "price_local": "12000", "price_cny": "500", "stock": "8",
+        }, follow_redirects=False)
+    assert response.status_code == 302
+    product = await _product_by_sku(Session, "NG-NEW")
+    assert (product.country, product.price_local, product.price_cny, product.stock, product.status) == (
+        "NG", 12000, 500, 8, "active",
+    )
+
+
+@pytest.mark.asyncio
+async def test_country_admin_edits_own_product_and_image(product_lifecycle_env):
+    client, _, ng_token, Session = product_lifecycle_env
+    product = await _product_by_sku(Session, "NG-LIFE")
+    async with client(ng_token) as c:
+        response = await c.post(f"/admin/products/{product.id}/edit", data={
+            "name": "Nigeria updated", "sku": "NG-LIFE", "country": "CM",
+            "price_local": "250", "stock": "11",
+        }, files={"primary_image": ("panel.jpg", b"new-image", "image/jpeg")}, follow_redirects=False)
+    assert response.status_code == 302
+    updated = await _product_by_sku(Session, "NG-LIFE")
+    assert (updated.name, updated.country, updated.price_local, updated.stock) == (
+        "Nigeria updated", "NG", 250, 11,
+    )
+    assert updated.image_asset_id is not None
+    async with client(ng_token) as c:
+        image = await c.get(f"/media/{updated.image_asset_id}")
+    assert image.status_code == 200 and image.content == b"new-image"
+
+
+@pytest.mark.asyncio
+async def test_country_admin_product_status_lifecycle_and_list_filter(product_lifecycle_env):
+    client, _, ng_token, Session = product_lifecycle_env
+    product = await _product_by_sku(Session, "NG-LIFE")
+    async with client(ng_token) as c:
+        for status in ("inactive", "archived", "active"):
+            response = await c.post(f"/admin/products/{product.id}/status", data={"status": status}, follow_redirects=False)
+            assert response.status_code == 302
+            assert response.headers["location"] == f"/admin/products?status={status}"
+            assert (await _product_by_sku(Session, "NG-LIFE")).status == status
+            selected = await c.get(f"/admin/products?status={status}")
+            assert b"NG-LIFE" in selected.content
+            other = "active" if status != "active" else "archived"
+            unselected = await c.get(f"/admin/products?status={other}")
+            assert b"NG-LIFE" not in unselected.content
+
+
+@pytest.mark.asyncio
+async def test_product_form_rejects_invalid_values_without_persisting(product_lifecycle_env):
+    client, _, ng_token, Session = product_lifecycle_env
+    product = await _product_by_sku(Session, "NG-LIFE")
+    async with client(ng_token) as c:
+        for field, value in (("price_local", "-1"), ("stock", "-1"), ("status", "unknown")):
+            response = await c.post("/admin/products", data={
+                "name": "Bad", "sku": f"BAD-{field.upper()}", field: value,
+            }, follow_redirects=False)
+            assert response.status_code == 400
+            assert await _product_by_sku(Session, f"BAD-{field.upper()}") is None
+            response = await c.post(f"/admin/products/{product.id}/edit", data={
+                "name": "Bad edit", "sku": "NG-LIFE", field: value,
+            }, follow_redirects=False)
+            assert response.status_code == 400
+            unchanged = await _product_by_sku(Session, "NG-LIFE")
+            assert (unchanged.name, unchanged.price_local, unchanged.stock, unchanged.status) == (
+                "Nigeria", 100, 3, "active",
+            )
+
+
+@pytest.mark.asyncio
+async def test_superadmin_product_country_validation_and_permanent_delete(product_lifecycle_env):
+    client, su_token, _, Session = product_lifecycle_env
+    async with client(su_token) as c:
+        invalid = await c.post("/admin/products", data={
+            "name": "Invalid country", "sku": "BAD-COUNTRY", "country": "ZZ",
+        }, follow_redirects=False)
+        assert invalid.status_code == 400
+        assert await _product_by_sku(Session, "BAD-COUNTRY") is None
+        normalized = await c.post("/admin/products", data={
+            "name": "Country valid", "sku": "VALID-COUNTRY", "country": " ng ",
+        }, follow_redirects=False)
+        assert normalized.status_code == 302
+        product = await _product_by_sku(Session, "VALID-COUNTRY")
+        assert product.country == "NG"
+        blank = await c.post("/admin/products", data={
+            "name": "Shared blank", "sku": "BLANK-COUNTRY", "country": "  ",
+        }, follow_redirects=False)
+        assert blank.status_code == 302
+        assert (await _product_by_sku(Session, "BLANK-COUNTRY")).country is None
+        invalid_edit = await c.post(f"/admin/products/{product.id}/edit", data={
+            "name": "Country valid", "sku": "VALID-COUNTRY", "country": "ZZ",
+        }, follow_redirects=False)
+        assert invalid_edit.status_code == 400
+        assert (await _product_by_sku(Session, "VALID-COUNTRY")).country == "NG"
+        missing = await c.post("/admin/products/99999/delete", follow_redirects=False)
+        assert missing.status_code == 404
+        deleted = await c.post(f"/admin/products/{product.id}/delete", follow_redirects=False)
+        assert deleted.status_code == 302
+        assert await _product_by_sku(Session, "VALID-COUNTRY") is None
+
+
+@pytest.mark.asyncio
+async def test_product_status_and_list_reject_invalid_values(product_lifecycle_env):
+    client, _, ng_token, Session = product_lifecycle_env
+    product = await _product_by_sku(Session, "NG-LIFE")
+    async with client(ng_token) as c:
+        invalid_status = await c.post(f"/admin/products/{product.id}/status", data={"status": "retired"})
+        invalid_filter = await c.get("/admin/products?status=retired")
+        missing = await c.post("/admin/products/99999/status", data={"status": "inactive"})
+    assert (invalid_status.status_code, invalid_filter.status_code, missing.status_code) == (400, 400, 404)
+    assert (await _product_by_sku(Session, "NG-LIFE")).status == "active"
+
+
+@pytest.mark.asyncio
+async def test_country_admin_product_scope_and_deletion_permissions(product_lifecycle_env):
+    client, _, ng_token, Session = product_lifecycle_env
+    shared = await _product_by_sku(Session, "SHARED-LIFE")
+    other = await _product_by_sku(Session, "CM-LIFE")
+    own = await _product_by_sku(Session, "NG-LIFE")
+    async with client(ng_token) as c:
+        for product, expected in ((shared, 403), (other, 404)):
+            edit_page = await c.get(f"/admin/products/{product.id}/edit")
+            edit = await c.post(f"/admin/products/{product.id}/edit", data={
+                "name": "Hacked", "sku": product.sku,
+            }, follow_redirects=False)
+            status = await c.post(f"/admin/products/{product.id}/status", data={
+                "status": "archived",
+            }, follow_redirects=False)
+            assert (edit_page.status_code, edit.status_code, status.status_code) == (expected,) * 3
+        delete = await c.post(f"/admin/products/{own.id}/delete", follow_redirects=False)
+    assert delete.status_code == 403
+    assert (await _product_by_sku(Session, "SHARED-LIFE")).status == "active"
+    assert (await _product_by_sku(Session, "CM-LIFE")).status == "active"
+    assert await _product_by_sku(Session, "NG-LIFE") is not None
