@@ -356,9 +356,12 @@ async def update_product(
         raise HTTPException(status_code=404, detail="Product not found")
     _assert_product_writable(current_user, product)
 
+    submitted_form = await request.form()
+    effective_price_local = price_local if "price_local" in submitted_form else product.price_local
+    effective_status = submitted_form["status"] if "status" in submitted_form else product.status
     fields = _product_fields_from_form(
         name, sku, category, subcategory, model, wattage, power_kw, capacity_ah,
-        capacity_kwh, voltage, dimensions, price_cny, price_xaf, price_local, status,
+        capacity_kwh, voltage, dimensions, price_cny, price_xaf, effective_price_local, effective_status,
         duty_rate, vat_rate, weight_kg, stock, featured, features, use_cases,
     )
     if current_user.role == "superadmin" and country is not None:

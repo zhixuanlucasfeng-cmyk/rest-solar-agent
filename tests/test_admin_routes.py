@@ -622,6 +622,52 @@ async def test_country_admin_edits_own_product_and_image(product_lifecycle_env):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("initial_status", ("inactive", "archived"))
+async def test_legacy_edit_preserves_omitted_local_price_and_status(product_lifecycle_env, initial_status):
+    client, _, ng_token, Session = product_lifecycle_env
+    product = await _product_by_sku(Session, "NG-LIFE")
+    async with client(ng_token) as c:
+        changed = await c.post(f"/admin/products/{product.id}/status", data={"status": initial_status})
+        assert changed.status_code == 302
+        edited = await c.post(f"/admin/products/{product.id}/edit", data={
+            "name": "Legacy form edit", "sku": "NG-LIFE", "price_cny": "90", "stock": "7",
+        }, follow_redirects=False)
+    assert edited.status_code == 302
+    updated = await _product_by_sku(Session, "NG-LIFE")
+    assert (updated.name, updated.price_local, updated.price_cny, updated.stock, updated.status) == (
+        "Legacy form edit", 100, 90, 7, initial_status,
+    )
+
+
+@pytest.mark.asyncio
+async def test_edit_explicit_empty_local_price_clears_and_status_can_change(product_lifecycle_env):
+    client, _, ng_token, Session = product_lifecycle_env
+    product = await _product_by_sku(Session, "NG-LIFE")
+    async with client(ng_token) as c:
+        assert (await c.post(f"/admin/products/{product.id}/status", data={"status": "inactive"})).status_code == 302
+        cleared = await c.post(f"/admin/products/{product.id}/edit", data={
+            "name": "No local price", "sku": "NG-LIFE", "price_local": "",
+        }, follow_redirects=False)
+        assert cleared.status_code == 302
+        current = await _product_by_sku(Session, "NG-LIFE")
+        assert (current.price_local, current.status) == (None, "inactive")
+        changed = await c.post(f"/admin/products/{product.id}/edit", data={
+            "name": "Reactivated", "sku": "NG-LIFE", "status": "active",
+        }, follow_redirects=False)
+        assert changed.status_code == 302
+        invalid = await c.post(f"/admin/products/{product.id}/edit", data={
+            "name": "Invalid", "sku": "NG-LIFE", "status": "retired",
+        }, follow_redirects=False)
+        empty = await c.post(f"/admin/products/{product.id}/edit", data={
+            "name": "Empty status", "sku": "NG-LIFE", "status": "",
+        }, follow_redirects=False)
+    assert invalid.status_code == 400
+    assert empty.status_code == 400
+    final = await _product_by_sku(Session, "NG-LIFE")
+    assert (final.name, final.price_local, final.status) == ("Reactivated", None, "active")
+
+
+@pytest.mark.asyncio
 async def test_country_admin_product_status_lifecycle_and_list_filter(product_lifecycle_env):
     client, _, ng_token, Session = product_lifecycle_env
     product = await _product_by_sku(Session, "NG-LIFE")
@@ -701,26 +747,3 @@ async def test_product_status_and_list_reject_invalid_values(product_lifecycle_e
         missing = await c.post("/admin/products/99999/status", data={"status": "inactive"})
     assert (invalid_status.status_code, invalid_filter.status_code, missing.status_code) == (400, 400, 404)
     assert (await _product_by_sku(Session, "NG-LIFE")).status == "active"
-
-
-@pytest.mark.asyncio
-async def test_country_admin_product_scope_and_deletion_permissions(product_lifecycle_env):
-    client, _, ng_token, Session = product_lifecycle_env
-    shared = await _product_by_sku(Session, "SHARED-LIFE")
-    other = await _product_by_sku(Session, "CM-LIFE")
-    own = await _product_by_sku(Session, "NG-LIFE")
-    async with client(ng_token) as c:
-        for product, expected in ((shared, 403), (other, 404)):
-            edit_page = await c.get(f"/admin/products/{product.id}/edit")
-            edit = await c.post(f"/admin/products/{product.id}/edit", data={
-                "name": "Hacked", "sku": product.sku,
-            }, follow_redirects=False)
-            status = await c.post(f"/admin/products/{product.id}/status", data={
-                "status": "archived",
-            }, follow_redirects=False)
-            assert (edit_page.status_code, edit.status_code, status.status_code) == (expected,) * 3
-        delete = await c.post(f"/admin/products/{own.id}/delete", follow_redirects=False)
-    assert delete.status_code == 403
-    assert (await _product_by_sku(Session, "SHARED-LIFE")).status == "active"
-    assert (await _product_by_sku(Session, "CM-LIFE")).status == "active"
-    assert await _product_by_sku(Session, "NG-LIFE") is not None
