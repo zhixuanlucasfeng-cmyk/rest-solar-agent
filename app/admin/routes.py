@@ -23,19 +23,33 @@ PRODUCT_CATEGORIES = ["solar_panels", "batteries", "inverters", "charge_controll
 ORDER_STATUSES = ["pending", "contacted", "quoted", "paid", "shipped", "closed"]
 
 
+def _safe_admin_target(target: str) -> bool:
+    current = target
+    for _ in range(5):
+        path = current.split("?", 1)[0].split("#", 1)[0]
+        if (
+            not current.startswith("/admin/")
+            or "\\" in current
+            or any(ord(character) < 32 or ord(character) == 127 for character in current)
+            or any(segment in (".", "..") for segment in path.split("/"))
+        ):
+            return False
+        try:
+            decoded = unquote(current, errors="strict")
+        except UnicodeDecodeError:
+            return False
+        if decoded == current:
+            return True
+        current = decoded
+    return False
+
+
 @router.post("/language")
 async def set_admin_language(
     language: str = Form(...), next: str = Form("/admin/dashboard")
 ):
     chosen = language if language in SUPPORTED_LANGUAGES else DEFAULT_LANGUAGE
-    path = unquote(next.split("?", 1)[0].split("#", 1)[0])
-    safe = (
-        next.startswith("/admin/")
-        and "\\" not in path
-        and all(ord(character) >= 32 for character in next)
-        and all(segment not in (".", "..") for segment in path.split("/"))
-    )
-    target = next if safe else "/admin/dashboard"
+    target = next if _safe_admin_target(next) else "/admin/dashboard"
     response = RedirectResponse(target, status_code=303)
     response.set_cookie("admin_lang", chosen, max_age=31536000, samesite="lax")
     return response

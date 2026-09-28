@@ -37,6 +37,15 @@ def test_catalog_keys_match_and_interpolation_works():
     assert translate("xx", "products") == "Products"
 
 
+@pytest.mark.parametrize("language,expected", [
+    ("en", ("country_admin", "superadmin", "agent")),
+    ("zh", ("国家管理员", "超级管理员", "客服")),
+    ("fr", ("Administrateur national", "Superadministrateur", "Agent")),
+])
+def test_role_labels_are_translated(language, expected):
+    assert tuple(translate(language, role) for role in ("country_admin", "superadmin", "agent")) == expected
+
+
 def test_context_renders_translated_product_label_and_preserves_globals():
     context = admin_context(_request("admin_lang=zh"))
     assert context["lang"] == "zh"
@@ -65,8 +74,23 @@ async def test_language_route_persists_cookie_and_redirects_locally():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("target", [
+    "/admin/products/1/edit", "/admin/products?category=solar%20panels",
+])
+async def test_language_route_accepts_other_local_admin_targets(target):
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/admin/language", data={"language": "fr", "next": target},
+            follow_redirects=False,
+        )
+    assert response.status_code == 303
+    assert response.headers["location"] == target
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("target", [
     "https://evil.example", "https://[evil", "//evil.example", "/other",
-    "/admin/../outside", "/admin/%2e%2e/outside", "/admin/\\evil.example",
+    "/admin/../outside", "/admin/%2e%2e/outside", "/admin/%252e%252e/outside",
+    "/admin/\\evil.example", "/admin/%255c/evil.example",
 ])
 async def test_language_route_rejects_external_next(target):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
