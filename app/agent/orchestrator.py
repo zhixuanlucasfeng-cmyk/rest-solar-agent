@@ -82,7 +82,7 @@ async def _retrieve_catalog_context(
 
     Only the shared catalog (Product.country IS NULL) plus the conversation's
     own country is visible. A None/unknown country sees shared-only."""
-    stmt = select(Product)
+    stmt = select(Product).where(Product.status == "active")
     if country:
         stmt = stmt.where(or_(Product.country.is_(None), Product.country == country))
     else:
@@ -145,11 +145,7 @@ async def _retrieve_catalog_context(
             f"dimensions {p.dimensions}" if p.dimensions else None,
         ]))
         feats = f" Features: {p.features}." if p.features else ""
-        price_bit = (
-            f"{p.price_xaf:,.0f} FCFA each (Douala, single-unit retail price)."
-            if p.price_xaf
-            else "Price on request — datasheet available."
-        )
+        price_bit = "Price must be confirmed with staff because local prices can change."
         featured_bit = " (★ Featured/recommended model)" if p.featured else ""
         lines.append(
             f"- {p.model} ({p.category}{'/' + p.subcategory if p.subcategory else ''}, SKU {p.sku}){featured_bit}: "
@@ -212,7 +208,7 @@ _SYSTEM_TEMPLATE = (
     "- Keep replies SHORT and DIRECT — 2 to 4 sentences max.\n"
     "- NEVER use tables, markdown headers, or bullet lists.\n"
     "- Write plain conversational sentences only.\n"
-    "- For prices, just say them naturally: e.g. '200W mono panel costs 22,500 FCFA each (under 20 units).'\n\n"
+    "- Prices can change. Never state or promise an exact price. Ask the customer to check the product page and confirm the current price with human staff.\n\n"
     "Business rules (follow these exactly):\n{rules_text}\n\n"
     "Product knowledge base:\n{faq_content}\n\n"
     "{contact_info}\n\n"

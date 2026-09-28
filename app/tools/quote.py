@@ -44,7 +44,9 @@ class QuoteTool(BaseTool):
         sku = str(params["sku"]).upper()
         qty = int(params["quantity"])
 
-        result = await self._db.execute(select(Product).where(Product.sku == sku))
+        result = await self._db.execute(
+            select(Product).where(Product.sku == sku, Product.status == "active")
+        )
         product = result.scalar_one_or_none()
         if not product:
             return {"error": f"Product with SKU '{sku}' not found"}

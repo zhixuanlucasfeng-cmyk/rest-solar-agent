@@ -70,3 +70,32 @@ async def test_products_feed_country_filter(client, db):
     r_ws = await client.get("/api/products", params={"country": " ng "})
     skus_ws = {p["sku"] for p in r_ws.json()}
     assert skus_ws == {"SH-1", "NG-1"}
+
+
+@pytest.mark.asyncio
+async def test_products_feed_publishes_only_active_with_local_catalog_fields(client, db):
+    active = Product(
+        name="Active NG panel", sku="NG-ACTIVE", category="solar_panels",
+        country="NG", status="active", price_local=850000.0, stock=7,
+    )
+    db.add_all([
+        active,
+        Product(name="Inactive NG panel", sku="NG-INACTIVE", category="solar_panels",
+                country="NG", status="inactive", price_local=700000.0),
+        Product(name="Archived NG panel", sku="NG-ARCHIVED", category="solar_panels",
+                country="NG", status="archived", price_local=600000.0),
+    ])
+    await db.commit()
+
+    response = await client.get("/api/products?country=NG")
+    assert response.status_code == 200
+    assert [item["sku"] for item in response.json()] == ["NG-ACTIVE"]
+    item = response.json()[0]
+    assert {key: item[key] for key in ("id", "country", "status", "price_local", "currency", "stock")} == {
+        "id": active.id,
+        "country": "NG",
+        "status": "active",
+        "price_local": 850000.0,
+        "currency": "NGN",
+        "stock": 7,
+    }

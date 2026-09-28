@@ -23,6 +23,12 @@ async def db_session():
             # price_cny left unset (None) — the real state of all 169
             # catalog products right now, no China ex-factory cost entered.
         ))
+        session.add_all([
+            Product(name="Inactive panel", sku="SP-INACTIVE", status="inactive",
+                    price_cny=1200.0, price_xaf=108000.0),
+            Product(name="Archived panel", sku="SP-ARCHIVED", status="archived",
+                    price_cny=1200.0, price_xaf=108000.0),
+        ])
         await session.commit()
         yield session
     await engine.dispose()
@@ -47,6 +53,14 @@ async def test_quote_unknown_sku(db_session):
     tool = QuoteTool(db_session)
     result = await tool.call({"sku": "UNKNOWN", "quantity": 1})
     assert "error" in result
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("sku", ["SP-INACTIVE", "SP-ARCHIVED"])
+async def test_quote_rejects_non_active_sku(db_session, sku):
+    result = await QuoteTool(db_session).call({"sku": sku, "quantity": 1})
+    assert "error" in result
+    assert "total_cny" not in result
 
 
 @pytest.mark.asyncio

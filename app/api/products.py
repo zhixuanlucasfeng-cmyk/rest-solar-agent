@@ -7,6 +7,7 @@ from app.db.session import get_db
 from app.db.models import Product
 from app.media import media_url
 from app.countries import is_valid_country, normalize_country
+from app.product_catalog import currency_for_country
 
 router = APIRouter()
 
@@ -20,7 +21,12 @@ async def list_products(country: str | None = Query(None), db: AsyncSession = De
     - country: Optional country code (CM/NG/SD/ML). If provided and valid, returns shared products + country products.
                If invalid or not provided, returns only shared products (country=NULL).
     """
-    stmt = select(Product).options(selectinload(Product.images)).order_by(Product.category, Product.sku)
+    stmt = (
+        select(Product)
+        .options(selectinload(Product.images))
+        .where(Product.status == "active")
+        .order_by(Product.category, Product.sku)
+    )
 
     if country and is_valid_country(country):
         stmt = stmt.where(or_(Product.country.is_(None), Product.country == normalize_country(country)))
@@ -31,7 +37,10 @@ async def list_products(country: str | None = Query(None), db: AsyncSession = De
     products = result.scalars().all()
     return [
         {
+            "id": p.id,
             "sku": p.sku,
+            "country": p.country,
+            "status": p.status,
             "name": p.name,
             "category": p.category,
             "subcategory": p.subcategory,
@@ -44,6 +53,9 @@ async def list_products(country: str | None = Query(None), db: AsyncSession = De
             "dimensions": p.dimensions,
             "price_cny": p.price_cny,
             "price_xaf": p.price_xaf,
+            "price_local": p.price_local,
+            "currency": currency_for_country(p.country),
+            "stock": p.stock,
             "featured": p.featured,
             "features": p.features,
             "use_cases": p.use_cases,
