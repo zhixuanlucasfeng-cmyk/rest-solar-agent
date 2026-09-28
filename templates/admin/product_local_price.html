@@ -1,0 +1,7 @@
+<label id="local-price-field" for="price_local" class="text-sm text-gray-700" {% if not product_country %}hidden{% endif %}>
+  {{ t('local_price') }}
+  {% if current_user.role == 'superadmin' %}(<span id="price-currency">{{ currency_for_country(product_country) or '' }}</span>){% else %}({{ currency_for_country(product_country) }}){% endif %}
+  <input id="price_local" name="price_local" type="number" min="0" step="0.01"
+         value="{{ product_price if product_country and product_price is not none else '' }}"
+         {% if not product_country %}disabled{% endif %} class="block w-full mt-1 border rounded px-3 py-2 text-sm">
+</label>

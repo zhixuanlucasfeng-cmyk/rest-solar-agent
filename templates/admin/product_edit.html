@@ -2,11 +2,18 @@
 {% block title %}{{ t('edit_product') }}{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">{{ t('edit_product') }} — {{ p.name }}</h1>
+{% if error_key %}
+<p role="alert" class="bg-red-50 text-red-800 border border-red-200 rounded p-3 mb-4">{{ t(error_key) }}</p>
+{% endif %}
 
 <form action="/admin/products/{{ p.id }}/edit" method="post" enctype="multipart/form-data"
       class="bg-white rounded shadow p-4 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-3xl">
   <input name="name" placeholder="{{ t('name') }}" required value="{{ p.name }}" class="border rounded px-3 py-2 text-sm sm:col-span-2">
   <input name="sku" placeholder="{{ t('sku') }}" required value="{{ p.sku }}" class="border rounded px-3 py-2 text-sm">
+
+  {% set product_country = p.country %}
+  {% set product_price = p.price_local %}
+  {% include "admin/product_country.html" %}
 
   <select name="category" class="border rounded px-3 py-2 text-sm">
     <option value="">{{ t('category') }}…</option>
@@ -23,10 +30,7 @@
   <input name="voltage" placeholder="{{ t('voltage') }}" value="{{ p.voltage or '' }}" class="border rounded px-3 py-2 text-sm">
   <input name="dimensions" placeholder="{{ t('dimensions') }}" value="{{ p.dimensions or '' }}" class="border rounded px-3 py-2 text-sm">
 
-  <label for="price_local" class="text-sm text-gray-700 flex flex-col gap-1">
-    {% if current_user.role == 'country_admin' %}{{ t('local_price') }} ({{ currency_for_country(current_user.country) or t('local') }}){% else %}{{ t('local_price') }}{% endif %}
-    <input id="price_local" name="price_local" type="number" min="0" step="0.01" value="{{ p.price_local if p.price_local is not none else '' }}" class="border rounded px-3 py-2 text-sm">
-  </label>
+  {% include "admin/product_local_price.html" %}
   <label for="price_cny" class="text-sm text-gray-700 flex flex-col gap-1">
     {{ t('cny_internal') }}
     <input id="price_cny" name="price_cny" type="number" min="0" step="0.01" value="{{ p.price_cny if p.price_cny is not none else '' }}" class="border rounded px-3 py-2 text-sm">
@@ -90,4 +94,5 @@
 {% endif %}
 
 <a href="/admin/products" class="inline-flex min-h-10 items-center mt-6 text-sm text-blue-700 hover:underline">← {{ t('back_to_products') }}</a>
+<script src="/static/admin-product-form.js" defer></script>
 {% endblock %}

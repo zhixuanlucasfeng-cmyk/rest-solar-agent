@@ -847,3 +847,151 @@ async def test_superadmin_delete_confirmation_escapes_product_label(product_life
     async with client(ng_token) as c:
         country_listing = await c.get("/admin/products")
     assert re.search(r'<form action="/admin/products/\d+/delete"', country_listing.text) is None
+
+
+@pytest.mark.asyncio
+async def test_product_list_uses_only_local_price_after_clearing(su_env):
+    import re
+
+    c, Session = su_env
+    async with Session() as session:
+        product = Product(name="Cleared Cameroon", sku="CLEARED-CM", country="CM",
+                          price_local=130000, price_xaf=125000, price_cny=700)
+        session.add(product)
+        await session.commit()
+        product_id = product.id
+    response = await c.post(f"/admin/products/{product_id}/edit", data={
+        "name": "Cleared Cameroon", "sku": "CLEARED-CM", "price_local": "",
+        "price_xaf": "125000", "price_cny": "700",
+    })
+    assert response.status_code == 302
+    listing = await c.get("/admin/products")
+    row = next(row for row in re.findall(r"<tr.*?</tr>", listing.text, re.S) if "CLEARED-CM" in row)
+    assert "On request" in row
+    assert "125000" not in row and "700.00" not in row
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("price", ["0", "125000"])
+async def test_new_shared_product_rejects_a_local_price(su_env, price):
+    c, Session = su_env
+    response = await c.post("/admin/products", data={
+        "name": "Invalid shared price", "sku": "SHARED-PRICE", "country": "",
+        "price_local": price,
+    })
+    assert response.status_code == 400
+    assert await _product_by_sku(Session, "SHARED-PRICE") is None
+
+
+@pytest.mark.asyncio
+async def test_editing_shared_product_clears_legacy_local_price(su_env):
+    import re
+
+    c, Session = su_env
+    async with Session() as session:
+        product = Product(name="Shared price", sku="SHARED-PRICE", country=None, price_local=125000)
+        session.add(product)
+        await session.commit()
+        product_id = product.id
+    listing = await c.get("/admin/products")
+    row = next(row for row in re.findall(r"<tr.*?</tr>", listing.text, re.S) if "SHARED-PRICE" in row)
+    assert "On request" in row and "125000" not in row
+    response = await c.post(f"/admin/products/{product_id}/edit", data={
+        "name": "Shared price", "sku": "SHARED-PRICE", "price_local": "500",
+    })
+    assert response.status_code == 302
+    assert (await _product_by_sku(Session, "SHARED-PRICE")).price_local is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("field", ["price_local", "price_cny"])
+@pytest.mark.parametrize("value", ["NaN", "Infinity", "-Infinity"])
+@pytest.mark.parametrize("operation", ["create", "edit"])
+async def test_product_prices_reject_nonfinite_values_without_writes(su_env, field, value, operation):
+    c, Session = su_env
+    async with Session() as session:
+        product = Product(name="Finite price", sku="FINITE", country="NG", price_local=100, price_cny=20)
+        session.add(product)
+        await session.commit()
+        product_id = product.id
+    path = "/admin/products" if operation == "create" else f"/admin/products/{product_id}/edit"
+    response = await c.post(path, data={
+        "name": "Invalid price", "sku": "INVALID" if operation == "create" else "FINITE",
+        "country": "NG", field: value,
+    })
+    assert response.status_code == 400
+    assert await _product_by_sku(Session, "INVALID") is None
+    unchanged = await _product_by_sku(Session, "FINITE")
+    assert (unchanged.name, unchanged.price_local, unchanged.price_cny) == ("Finite price", 100, 20)
+
+
+@pytest.mark.asyncio
+async def test_superadmin_can_reassign_country_to_shared_and_back(product_lifecycle_env):
+    client, su_token, _, Session = product_lifecycle_env
+    product = await _product_by_sku(Session, "NG-LIFE")
+    async with client(su_token) as c:
+        path = f"/admin/products/{product.id}/edit"
+        fields = {"name": "Reassigned", "sku": "NG-LIFE"}
+        assert (await c.post(path, data=fields)).status_code == 302
+        preserved = await _product_by_sku(Session, "NG-LIFE")
+        assert (preserved.country, preserved.price_local) == ("NG", 100)
+        assert (await c.post(path, data={**fields, "country": "", "price_local": "100"})).status_code == 302
+        shared = await _product_by_sku(Session, "NG-LIFE")
+        assert (shared.country, shared.price_local) == (None, None)
+        assert (await c.post(path, data={**fields, "country": " cm ", "price_local": "60000"})).status_code == 302
+        reassigned = await _product_by_sku(Session, "NG-LIFE")
+        assert (reassigned.country, reassigned.price_local) == ("CM", 60000)
+        response = await c.post(path, data={**fields, "country": "XX", "price_local": "70000"})
+        assert response.status_code == 400
+        unchanged = await _product_by_sku(Session, "NG-LIFE")
+        assert (unchanged.country, unchanged.price_local) == ("CM", 60000)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("country,currency", [(None, None), ("CM", "XAF"), ("ML", "XOF"), ("NG", "NGN"), ("SD", "SDG")])
+async def test_superadmin_forms_show_ownership_currency_and_shared_price_state(su_env, country, currency):
+    import re
+
+    c, Session = su_env
+    async with Session() as session:
+        product = Product(name="Form ownership", sku="FORM-COUNTRY", country=country, price_local=125000)
+        session.add(product)
+        await session.commit()
+        product_id = product.id
+    for path, selected_country, expected_currency in [
+        ("/admin/products", None, None),
+        (f"/admin/products/{product_id}/edit", country, currency),
+    ]:
+        response = await c.get(path)
+        assert response.status_code == 200
+        selector = re.search(r'<select[^>]*name="country"[^>]*>(.*?)</select>', response.text, re.S)
+        assert selector, path
+        assert re.search(r'<option[^>]*value="' + (selected_country or "") + r'"[^>]*selected', selector.group(1))
+        for code, unit in [("CM", "XAF"), ("ML", "XOF"), ("NG", "NGN"), ("SD", "SDG")]:
+            assert re.search(r'<option[^>]*value="' + code + r'"[^>]*data-currency="' + unit + '"', selector.group(1))
+        label = re.search(r'<label[^>]*for="price_local"[^>]*>(.*?)</label>', response.text, re.S).group(0)
+        price_input = re.search(r'<input[^>]*name="price_local"[^>]*>', label).group(0)
+        if selected_country:
+            assert expected_currency in label
+            assert "hidden" not in label.split(">", 1)[0]
+            assert "disabled" not in price_input
+        else:
+            assert "hidden" in label.split(">", 1)[0]
+            assert "disabled" in price_input
+            assert "125000" not in price_input
+        assert 'src="/static/admin-product-form.js"' in response.text
+
+
+@pytest.mark.asyncio
+async def test_country_admin_cannot_reassign_to_shared(product_lifecycle_env):
+    client, _, ng_token, Session = product_lifecycle_env
+    product = await _product_by_sku(Session, "NG-LIFE")
+    async with client(ng_token) as c:
+        form = await c.get(f"/admin/products/{product.id}/edit")
+        assert 'name="country"' not in form.text
+        response = await c.post(f"/admin/products/{product.id}/edit", data={
+            "name": "Nigeria", "sku": "NG-LIFE", "country": "", "price_local": "250",
+        })
+    assert response.status_code == 302
+    updated = await _product_by_sku(Session, "NG-LIFE")
+    assert (updated.country, updated.price_local) == ("NG", 250)

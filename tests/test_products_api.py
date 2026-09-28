@@ -99,3 +99,32 @@ async def test_products_feed_publishes_only_active_with_local_catalog_fields(cli
         "currency": "NGN",
         "stock": 7,
     }
+
+
+@pytest.mark.asyncio
+async def test_shared_catalog_never_serializes_a_local_price(client, db):
+    db.add(Product(name="Shared legacy price", sku="SHARED-PRICE", country=None,
+                   price_local=125000, price_xaf=120000, price_cny=500))
+    await db.commit()
+    for country in ("CM", "NG", "ML", "SD"):
+        response = await client.get("/api/products", params={"country": country})
+        assert response.status_code == 200
+        assert response.json()[0]["price_local"] is None
+        assert response.json()[0]["currency"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("price", [float("nan"), float("inf"), float("-inf")])
+async def test_public_feed_suppresses_nonfinite_legacy_prices(client, db, price):
+    product = Product(name="Legacy invalid price", sku="LEGACY-INVALID", country="NG",
+                      price_local=price, price_xaf=price, price_cny=price)
+    db.add(product)
+    await db.commit()
+    async with AsyncClient(transport=ASGITransport(app=app, raise_app_exceptions=False),
+                           base_url="http://test") as public:
+        response = await public.get("/api/products?country=NG")
+    assert response.status_code == 200
+    item = response.json()[0]
+    assert {key: item[key] for key in ("price_local", "price_xaf", "price_cny")} == {
+        "price_local": None, "price_xaf": None, "price_cny": None,
+    }

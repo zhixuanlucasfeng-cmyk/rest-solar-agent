@@ -119,6 +119,69 @@ async def test_login_translates_fields_selector_and_authentication_error(transla
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("language,price_error,stock_error,status_error,country_error,shared_error", [
+    ("en", "Enter a finite, nonnegative price.", "Enter a nonnegative whole number for stock.",
+     "Choose a valid product status.", "Choose a valid country.", "Shared products cannot have a local price."),
+    ("zh", "请输入有限的非负价格。", "库存必须是非负整数。", "请选择有效的产品状态。",
+     "请选择有效的国家。", "共享产品不能设置当地价格。"),
+    ("fr", "Saisissez un prix fini et positif ou nul.", "Le stock doit être un entier positif ou nul.",
+     "Choisissez un statut de produit valide.", "Choisissez un pays valide.",
+     "Les produits partagés ne peuvent pas avoir de prix local."),
+])
+async def test_product_validation_renders_localized_form_errors(
+    translated_client, language, price_error, stock_error, status_error, country_error, shared_error,
+):
+    import html
+    import re
+
+    translated_client.cookies.set("admin_lang", language)
+    cases = [
+        ("price_local", "-1", price_error), ("price_cny", "NaN", price_error),
+        ("price_local", "not-a-price", price_error),
+        ("stock", "-1", stock_error), ("stock", "many", stock_error),
+        ("status", "unknown", status_error), ("status", "", status_error),
+        ("country", "XX", country_error),
+    ]
+    for path in ("/admin/products", "/admin/products/1/edit"):
+        for field, value, expected in cases:
+            response = await translated_client.post(path, data={
+                "name": "Bad value", "sku": "ORIGINAL-1" if path.endswith("/edit") else "INVALID",
+                "country": "NG", field: value,
+            })
+            assert response.status_code == 400, (path, field, value, response.text)
+            assert response.headers["content-type"].startswith("text/html")
+            assert f'<html lang="{language}">' in response.text
+            alert = re.search(r'<[^>]+role="alert"[^>]*>(.*?)</[^>]+>', response.text, re.S)
+            assert alert and expected in html.unescape(alert.group(1))
+            assert f'action="{path}" method="post"' in response.text
+
+    shared = await translated_client.post("/admin/products", data={
+        "name": "Shared", "sku": "INVALID-SHARED", "country": "", "price_local": "10",
+    })
+    assert shared.status_code == 400
+    assert shared_error in html.unescape(shared.text)
+    feed = await translated_client.get("/api/products?country=NG")
+    assert [item["sku"] for item in feed.json()] == ["ORIGINAL-1"]
+    assert feed.json()[0]["name"] == "Original Panel 原文"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("language,publish,archive", [("en", "Publish", "Archive"), ("zh", "上架", "归档"), ("fr", "Publier", "Archiver")])
+async def test_inactive_rows_offer_translated_publish_and_archive(translated_client, language, publish, archive):
+    import re
+
+    translated_client.cookies.set("admin_lang", language)
+    assert (await translated_client.post("/admin/products/1/status", data={"status": "inactive"})).status_code == 302
+    response = await translated_client.get("/admin/products?status=inactive")
+    form = re.search(r'<form action="/admin/products/1/status"[^>]*>(.*?)</form>', response.text, re.S).group(1)
+    for state, label in [("active", publish), ("archived", archive)]:
+        assert re.search(r'<button[^>]*name="status" value="' + state + r'"[^>]*min-h-10[^>]*>\s*' + label, form)
+    assert (await translated_client.post("/admin/products/1/status", data={"status": "active"})).status_code == 302
+    feed = await translated_client.get("/api/products?country=NG")
+    assert [item["sku"] for item in feed.json()] == ["ORIGINAL-1"]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("language", ["zh", "fr"])
 async def test_translated_delete_prompt_keeps_product_text_out_of_script(translated_client, language):
     import html

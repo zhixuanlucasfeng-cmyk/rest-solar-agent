@@ -1,0 +1,11 @@
+{% if current_user.role == "superadmin" %}
+<label for="product-country" class="text-sm text-gray-700 sm:col-span-3">
+  {{ t('country') }}
+  <select id="product-country" name="country" class="border rounded px-3 py-2 text-sm w-full">
+    <option value="" data-currency="" {{ 'selected' if not product_country }}>{{ t('shared_all_countries') }}</option>
+    {% for code in ['CM', 'ML', 'NG', 'SD'] %}
+    <option value="{{ code }}" data-currency="{{ currency_for_country(code) }}" {{ 'selected' if product_country == code }}>{{ code }}</option>
+    {% endfor %}
+  </select>
+</label>
+{% endif %}

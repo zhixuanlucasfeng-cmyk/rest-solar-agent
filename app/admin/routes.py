@@ -223,6 +223,13 @@ async def products_page(
     category: str | None = None,
     status: str = "active",
 ):
+    return templates.TemplateResponse(
+        request=request, name="admin/products.html",
+        context=await _product_list_context(db, current_user, category, status),
+    )
+
+
+async def _product_list_context(db, current_user, category=None, status="active") -> dict:
     if not status:
         status = "active"
     if status not in PRODUCT_STATUSES:
@@ -251,15 +258,30 @@ async def products_page(
     cats_result = await db.execute(cats_stmt)
     categories = sorted(c for (c,) in cats_result.all() if c)
 
+    return {
+        "current_user": current_user, "products": products, "total_count": total_count,
+        "categories": categories, "selected_category": category,
+        "category_choices": PRODUCT_CATEGORIES,
+        "selected_status": status, "status_counts": status_counts,
+        "product_statuses": PRODUCT_STATUSES,
+    }
+
+
+async def _product_form_error(request, db, current_user, error, product=None):
+    if error.status_code != 400:
+        raise error
+    if product is None:
+        context = await _product_list_context(db, current_user)
+        template = "admin/products.html"
+    else:
+        context = {
+            "current_user": current_user, "p": product,
+            "category_choices": PRODUCT_CATEGORIES, "product_statuses": PRODUCT_STATUSES,
+        }
+        template = "admin/product_edit.html"
+    context["error_key"] = error.detail
     return templates.TemplateResponse(
-        request=request, name="admin/products.html",
-        context={
-            "current_user": current_user, "products": products, "total_count": total_count,
-            "categories": categories, "selected_category": category,
-            "category_choices": PRODUCT_CATEGORIES,
-            "selected_status": status, "status_counts": status_counts,
-            "product_statuses": PRODUCT_STATUSES,
-        },
+        request=request, name=template, context=context, status_code=400,
     )
 
 
@@ -268,6 +290,15 @@ def _product_fields_from_form(
     capacity_kwh, voltage, dimensions, price_cny, price_xaf, price_local, status,
     duty_rate, vat_rate, weight_kg, stock, featured, features, use_cases,
 ) -> dict:
+    try:
+        price_local = float(price_local) if price_local is not None else None
+        price_cny = float(price_cny) if price_cny is not None else None
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="invalid_product_price")
+    try:
+        stock = int(stock)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="invalid_product_stock")
     validate_product_values(status=status, price_local=price_local, price_cny=price_cny, stock=stock)
     return dict(
         name=name, sku=sku.upper(), category=category or None, subcategory=subcategory or None,
@@ -293,28 +324,35 @@ async def create_product(
     category: str = Form(None), subcategory: str = Form(None), model: str = Form(None),
     wattage: str = Form(None), power_kw: str = Form(None), capacity_ah: str = Form(None),
     capacity_kwh: str = Form(None), voltage: str = Form(None), dimensions: str = Form(None),
-    price_cny: float = Form(None), price_xaf: float = Form(None),
-    price_local: float | None = Form(None), status: str = Form("active"),
+    price_cny: str | None = Form(None), price_xaf: float = Form(None),
+    price_local: str | None = Form(None), status: str = Form("active"),
     duty_rate: float = Form(0.30), vat_rate: float = Form(0.1925),
-    weight_kg: float = Form(None), stock: int = Form(0),
+    weight_kg: float = Form(None), stock: str = Form("0"),
     featured: bool = Form(False), features: str = Form(None), use_cases: str = Form(None),
     datasheet: UploadFile = File(None), primary_image: UploadFile = File(None),
     gallery_images: list[UploadFile] = File(None),
     db: AsyncSession = Depends(get_db),
     current_user: AdminUser = Depends(require_admin),
 ):
-    fields = _product_fields_from_form(
-        name, sku, category, subcategory, model, wattage, power_kw, capacity_ah,
-        capacity_kwh, voltage, dimensions, price_cny, price_xaf, price_local, status,
-        duty_rate, vat_rate, weight_kg, stock, featured, features, use_cases,
-    )
-    product = Product(**fields)
-    if current_user.country is not None:
-        product.country = current_user.country
-    elif country and country.strip():
-        if not is_valid_country(country):
-            raise HTTPException(status_code=400, detail="Invalid country")
-        product.country = normalize_country(country)
+    submitted_form = await request.form()
+    try:
+        fields = _product_fields_from_form(
+            name, sku, category, subcategory, model, wattage, power_kw, capacity_ah,
+            capacity_kwh, voltage, dimensions, price_cny, price_xaf, price_local,
+            submitted_form.get("status", status),
+            duty_rate, vat_rate, weight_kg, stock, featured, features, use_cases,
+        )
+        product = Product(**fields)
+        if current_user.country is not None:
+            product.country = current_user.country
+        elif country and country.strip():
+            if not is_valid_country(country):
+                raise HTTPException(status_code=400, detail="invalid_product_country")
+            product.country = normalize_country(country)
+        if product.country is None and fields["price_local"] is not None:
+            raise HTTPException(status_code=400, detail="shared_product_price")
+    except HTTPException as error:
+        return await _product_form_error(request, db, current_user, error)
 
     if datasheet and datasheet.filename:
         product.datasheet_asset_id = await save_upload(db, datasheet, "datasheet")
@@ -360,10 +398,10 @@ async def update_product(
     category: str = Form(None), subcategory: str = Form(None), model: str = Form(None),
     wattage: str = Form(None), power_kw: str = Form(None), capacity_ah: str = Form(None),
     capacity_kwh: str = Form(None), voltage: str = Form(None), dimensions: str = Form(None),
-    price_cny: float = Form(None), price_xaf: float = Form(None),
-    price_local: float | None = Form(None), status: str = Form("active"),
+    price_cny: str | None = Form(None), price_xaf: float = Form(None),
+    price_local: str | None = Form(None), status: str = Form("active"),
     duty_rate: float = Form(0.30), vat_rate: float = Form(0.1925),
-    weight_kg: float = Form(None), stock: int = Form(0),
+    weight_kg: float = Form(None), stock: str = Form("0"),
     featured: bool = Form(False), features: str = Form(None), use_cases: str = Form(None),
     datasheet: UploadFile = File(None), primary_image: UploadFile = File(None),
     gallery_images: list[UploadFile] = File(None),
@@ -381,15 +419,23 @@ async def update_product(
     submitted_form = await request.form()
     effective_price_local = price_local if "price_local" in submitted_form else product.price_local
     effective_status = submitted_form["status"] if "status" in submitted_form else product.status
-    fields = _product_fields_from_form(
-        name, sku, category, subcategory, model, wattage, power_kw, capacity_ah,
-        capacity_kwh, voltage, dimensions, price_cny, price_xaf, effective_price_local, effective_status,
-        duty_rate, vat_rate, weight_kg, stock, featured, features, use_cases,
-    )
-    if current_user.role == "superadmin" and country is not None:
-        if country.strip() and not is_valid_country(country):
-            raise HTTPException(status_code=400, detail="Invalid country")
-        product.country = normalize_country(country) if country.strip() else None
+    try:
+        fields = _product_fields_from_form(
+            name, sku, category, subcategory, model, wattage, power_kw, capacity_ah,
+            capacity_kwh, voltage, dimensions, price_cny, price_xaf, effective_price_local, effective_status,
+            duty_rate, vat_rate, weight_kg, stock, featured, features, use_cases,
+        )
+        effective_country = product.country
+        if current_user.role == "superadmin" and "country" in submitted_form:
+            submitted_country = str(submitted_form["country"]).strip()
+            if submitted_country and not is_valid_country(submitted_country):
+                raise HTTPException(status_code=400, detail="invalid_product_country")
+            effective_country = normalize_country(submitted_country) if submitted_country else None
+    except HTTPException as error:
+        return await _product_form_error(request, db, current_user, error, product)
+    if effective_country is None:
+        fields["price_local"] = None
+    product.country = effective_country
     for key, value in fields.items():
         setattr(product, key, value)
 
