@@ -51,7 +51,11 @@ class Product(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     sku: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     price_cny: Mapped[float | None] = mapped_column(Float, nullable=True)
+    price_local: Mapped[float | None] = mapped_column(Float, nullable=True)
     price_xaf: Mapped[float | None] = mapped_column(Float, nullable=True)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="active", server_default="active", index=True,
+    )
     duty_rate: Mapped[float] = mapped_column(Float, default=0.30)
     vat_rate: Mapped[float] = mapped_column(Float, default=0.1925)
     weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
