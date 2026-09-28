@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 
 from app.db.models import Base, AdminUser
+from app.db.schema import upgrade_schema
 from app.db.session import DATABASE_URL
 from app.admin.auth import hash_password, verify_password
 from app.api.chat import router as chat_router
@@ -86,6 +87,7 @@ async def lifespan(app: FastAPI):
     engine = create_async_engine(DATABASE_URL)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(upgrade_schema)
     async with AsyncSession(engine) as session:
         await _seed_admin_users(session)
     await engine.dispose()
