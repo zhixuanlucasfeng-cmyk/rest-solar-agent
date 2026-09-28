@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, Form, Depends, Response, HTTPException, UploadFile, File
+from urllib.parse import unquote
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,14 +12,33 @@ from app.admin.deps import get_current_admin, require_superadmin, require_admin,
 from app.countries import normalize_country, is_valid_country, COUNTRIES
 from app.media import media_url, save_upload
 from app.product_catalog import PRODUCT_STATUSES, currency_for_country, validate_product_values
+from app.admin.i18n import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, admin_context
 
 router = APIRouter(prefix="/admin")
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory="templates", context_processors=[admin_context])
 templates.env.globals["media_url"] = media_url
 templates.env.globals["currency_for_country"] = currency_for_country
 
 PRODUCT_CATEGORIES = ["solar_panels", "batteries", "inverters", "charge_controllers", "ess", "other"]
 ORDER_STATUSES = ["pending", "contacted", "quoted", "paid", "shipped", "closed"]
+
+
+@router.post("/language")
+async def set_admin_language(
+    language: str = Form(...), next: str = Form("/admin/dashboard")
+):
+    chosen = language if language in SUPPORTED_LANGUAGES else DEFAULT_LANGUAGE
+    path = unquote(next.split("?", 1)[0].split("#", 1)[0])
+    safe = (
+        next.startswith("/admin/")
+        and "\\" not in path
+        and all(ord(character) >= 32 for character in next)
+        and all(segment not in (".", "..") for segment in path.split("/"))
+    )
+    target = next if safe else "/admin/dashboard"
+    response = RedirectResponse(target, status_code=303)
+    response.set_cookie("admin_lang", chosen, max_age=31536000, samesite="lax")
+    return response
 
 
 @router.get("/login", response_class=HTMLResponse)
