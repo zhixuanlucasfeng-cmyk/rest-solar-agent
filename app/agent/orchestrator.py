@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 
 from app.agent.language_detector import detect_language
-from app.countries import normalize_country
+from app.countries import is_valid_country, normalize_country
 from app.agent.rule_engine import get_matching_rules
 from app.llm.client import chat_complete, chat_complete_stream, PendingToolCall
 from app.tools import get_tools, get_tool_map
@@ -229,7 +229,7 @@ async def run(
     conv = result.scalar_one_or_none()
     if not conv:
         conv = Conversation(session_id=session_id, language=lang)
-        if country is not None:
+        if is_valid_country(country):
             conv.country = normalize_country(country)
         db.add(conv)
         await db.flush()
@@ -336,7 +336,7 @@ async def run_stream(
     conv = result.scalar_one_or_none()
     if not conv:
         conv = Conversation(session_id=session_id, language=lang)
-        if country is not None:
+        if is_valid_country(country):
             conv.country = normalize_country(country)
         db.add(conv)
         await db.flush()

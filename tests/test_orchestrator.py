@@ -1,9 +1,10 @@
 import json
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.models import Product, Rule
-from app.agent.orchestrator import run, _retrieve_catalog_context
+from app.db.models import Conversation, Product, Rule
+from app.agent.orchestrator import run, run_stream, _retrieve_catalog_context
 from app.llm.client import LLMUnavailableError
 
 
@@ -155,6 +156,79 @@ async def test_catalog_context_none_country_sees_shared_only(mock_llm, db_with_r
     system_content = mock_llm.call_args.args[0][0]["content"]
     assert "SHP-1" in system_content
     assert "NGP-1" not in system_content
+
+
+@pytest.mark.parametrize("input_country,stored_country,ng_visible", [
+    ("US", None, False),
+    (" ng ", "NG", True),
+])
+@patch("app.agent.orchestrator.chat_complete")
+async def test_new_chat_country_controls_catalog_scope(
+    mock_llm, db_with_rules, input_country, stored_country, ng_visible,
+):
+    db_with_rules.add_all([
+        Product(name="SharedScope", sku="SCOPE-SHARED", category="solar_panels",
+                model="SharedScope", status="active"),
+        Product(name="CameroonScope", sku="SCOPE-CM", category="solar_panels",
+                model="CameroonScope", country="CM", status="active"),
+        Product(name="NigeriaScope", sku="SCOPE-NG", category="solar_panels",
+                model="NigeriaScope", country="NG", status="active"),
+    ])
+    await db_with_rules.commit()
+    mock_llm.return_value = await _make_llm_text_response("ok")
+
+    await run(
+        "SharedScope CameroonScope NigeriaScope", "country-scope-run",
+        db_with_rules, country=input_country,
+    )
+
+    conversation = (await db_with_rules.execute(
+        select(Conversation).where(Conversation.session_id == "country-scope-run")
+    )).scalar_one()
+    system_content = mock_llm.call_args.args[0][0]["content"]
+    assert conversation.country == stored_country
+    assert "SCOPE-SHARED" in system_content
+    assert "SCOPE-CM" not in system_content
+    assert ("SCOPE-NG" in system_content) is ng_visible
+
+
+@pytest.mark.parametrize("input_country,stored_country,ng_visible", [
+    ("US", None, False),
+    (" ng ", "NG", True),
+])
+async def test_new_stream_chat_country_controls_catalog_scope(
+    db_with_rules, input_country, stored_country, ng_visible,
+):
+    db_with_rules.add_all([
+        Product(name="SharedScope", sku="SCOPE-SHARED", category="solar_panels",
+                model="SharedScope", status="active"),
+        Product(name="CameroonScope", sku="SCOPE-CM", category="solar_panels",
+                model="CameroonScope", country="CM", status="active"),
+        Product(name="NigeriaScope", sku="SCOPE-NG", category="solar_panels",
+                model="NigeriaScope", country="NG", status="active"),
+    ])
+    await db_with_rules.commit()
+    llm_messages = []
+
+    async def fake_stream(messages, tools=None):
+        llm_messages.append(messages)
+        yield "ok"
+
+    with patch("app.agent.orchestrator.chat_complete_stream", fake_stream):
+        tokens = [token async for token in run_stream(
+            "SharedScope CameroonScope NigeriaScope", "country-scope-stream",
+            db_with_rules, country=input_country,
+        )]
+
+    conversation = (await db_with_rules.execute(
+        select(Conversation).where(Conversation.session_id == "country-scope-stream")
+    )).scalar_one()
+    system_content = llm_messages[0][0]["content"]
+    assert tokens == ["ok"]
+    assert conversation.country == stored_country
+    assert "SCOPE-SHARED" in system_content
+    assert "SCOPE-CM" not in system_content
+    assert ("SCOPE-NG" in system_content) is ng_visible
 
 
 @patch("app.agent.orchestrator.chat_complete")
