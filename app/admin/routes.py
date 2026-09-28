@@ -1,5 +1,6 @@
+import re
+
 from fastapi import APIRouter, Request, Form, Depends, Response, HTTPException, UploadFile, File
-from urllib.parse import unquote
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,24 +25,7 @@ ORDER_STATUSES = ["pending", "contacted", "quoted", "paid", "shipped", "closed"]
 
 
 def _safe_admin_target(target: str) -> bool:
-    current = target
-    for _ in range(5):
-        path = current.split("?", 1)[0].split("#", 1)[0]
-        if (
-            not current.startswith("/admin/")
-            or "\\" in current
-            or any(ord(character) < 32 or ord(character) == 127 for character in current)
-            or any(segment in (".", "..") for segment in path.split("/"))
-        ):
-            return False
-        try:
-            decoded = unquote(current, errors="strict")
-        except UnicodeDecodeError:
-            return False
-        if decoded == current:
-            return True
-        current = decoded
-    return False
+    return re.fullmatch(r"/admin(?:/[A-Za-z0-9_-]+)+", target) is not None
 
 
 @router.post("/language")

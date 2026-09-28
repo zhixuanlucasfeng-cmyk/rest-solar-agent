@@ -60,11 +60,11 @@ async def test_language_route_persists_cookie_and_redirects_locally():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
             "/admin/language",
-            data={"language": "zh", "next": "/admin/products?status=active"},
+            data={"language": "zh", "next": "/admin/products"},
             follow_redirects=False,
         )
         assert response.status_code == 303
-        assert response.headers["location"] == "/admin/products?status=active"
+        assert response.headers["location"] == "/admin/products"
         cookie = response.headers["set-cookie"]
         assert "admin_lang=zh" in cookie
         assert "Max-Age=31536000" in cookie
@@ -74,7 +74,7 @@ async def test_language_route_persists_cookie_and_redirects_locally():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("target", [
-    "/admin/products/1/edit", "/admin/products?category=solar%20panels",
+    "/admin/products/12/edit", "/admin/dashboard", "/admin/products",
 ])
 async def test_language_route_accepts_other_local_admin_targets(target):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -90,9 +90,11 @@ async def test_language_route_accepts_other_local_admin_targets(target):
 @pytest.mark.parametrize("target", [
     "https://evil.example", "https://[evil", "//evil.example", "/other",
     "/admin/../outside", "/admin/%2e%2e/outside", "/admin/%252e%252e/outside",
+    "/admin/%3F/%2e%2e/%2e%2e/outside", "/admin/%70roducts",
     "/admin/\\evil.example", "/admin/%255c/evil.example",
+    "/admin/products?status=active", "/admin/products#top", "/admin/产品",
 ])
-async def test_language_route_rejects_external_next(target):
+async def test_language_route_rejects_unsafe_next(target):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
             "/admin/language", data={"language": "invalid", "next": target},
