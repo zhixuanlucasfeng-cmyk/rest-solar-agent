@@ -814,5 +814,36 @@ async def test_superadmin_product_page_keeps_permanent_delete_and_generic_shared
     assert listing.status_code == edit.status_code == 200
     assert f'/admin/products/{ids["SHARE-1"]}/delete' in listing.text
     assert 'Delete permanently' in listing.text
+    assert f'action="/admin/products/{ids["SHARE-1"]}/delete" method="post" data-delete-product="Shared panel (SHARE-1)"' in listing.text
+    assert "dataset.deleteProduct" in listing.text
+    assert "addEventListener('submit'" in listing.text
+    assert "window.confirm(" in listing.text
+    assert "event.preventDefault()" in listing.text
     assert 'Local price' in edit.text
     assert 'name="price_local"' in edit.text
+
+
+@pytest.mark.asyncio
+async def test_superadmin_delete_confirmation_escapes_product_label(product_lifecycle_env):
+    import html
+    import re
+    from sqlalchemy import select
+
+    client, su_token, ng_token, Session = product_lifecycle_env
+    hostile_name = 'Panel "><img src=x onerror=alert(1)>'
+    async with Session() as session:
+        product = await session.scalar(select(Product).where(Product.sku == "NG-LIFE"))
+        product.name = hostile_name
+        await session.commit()
+
+    async with client(su_token) as c:
+        listing = await c.get("/admin/products")
+    assert listing.status_code == 200
+    forms = re.findall(r'<form action="/admin/products/\d+/delete" method="post" data-delete-product="([^"]+)">', listing.text)
+    assert forms
+    assert f"{hostile_name} (NG-LIFE)" in [html.unescape(label) for label in forms]
+    assert 'onsubmit=' not in listing.text
+
+    async with client(ng_token) as c:
+        country_listing = await c.get("/admin/products")
+    assert re.search(r'<form action="/admin/products/\d+/delete"', country_listing.text) is None

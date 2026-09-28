@@ -162,7 +162,7 @@
             {% endif %}
           </form>
           {% if current_user.role == 'superadmin' %}
-          <form action="/admin/products/{{ p.id }}/delete" method="post">
+          <form action="/admin/products/{{ p.id }}/delete" method="post" data-delete-product="{{ p.name }} ({{ p.sku }})">
             <button type="submit" class="min-h-10 px-3 rounded border border-red-300 text-red-700 text-xs">Delete permanently</button>
           </form>
           {% endif %}
@@ -176,4 +176,13 @@
   </tbody>
 </table>
 </div>
+<script>
+  document.querySelectorAll('form[data-delete-product]').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      if (!window.confirm('Delete ' + form.dataset.deleteProduct + ' permanently? This cannot be undone.')) {
+        event.preventDefault();
+      }
+    });
+  });
+</script>
 {% endblock %}
