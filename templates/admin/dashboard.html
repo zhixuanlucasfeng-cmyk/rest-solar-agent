@@ -1,15 +1,7 @@
 {% extends "admin/base.html" %}
 {% block title %}{{ t('dashboard') }}{% endblock %}
+{% block page_header %}<div class="page-head"><div><span class="page-kicker">{{ t('country_operations_today') }}</span><h1>{{ t('dashboard') }}</h1><p>{{ t('dashboard_description') }}</p></div><a href="/admin/inbox" class="btn btn-accent">{{ t('open_live_inbox') }}</a></div>{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-6">{{ t('dashboard') }}</h1>
-<div class="grid grid-cols-2 gap-4 max-w-lg">
-  <div class="bg-white rounded shadow p-6 text-center">
-    <div class="text-4xl font-bold text-blue-800">{{ conv_count }}</div>
-    <div class="text-gray-500 mt-1 text-sm">{{ t('total_conversations') }}</div>
-  </div>
-  <div class="bg-white rounded shadow p-6 text-center">
-    <div class="text-4xl font-bold text-orange-500">{{ open_tickets }}</div>
-    <div class="text-gray-500 mt-1 text-sm">{{ t('open_tickets') }}</div>
-  </div>
-</div>
+<section class="metric-grid" aria-label="{{ t('work_totals') }}"><div class="metric-card"><div class="metric-card__value text-blue-800">{{ conv_count }}</div><span>{{ t('total_conversations') }}</span></div><div class="metric-card"><div class="metric-card__value text-orange-500">{{ open_tickets }}</div><span>{{ t('open_tickets') }}</span></div></section>
+{% if current_user.role != "agent" %}<section class="action-grid" style="margin-top:28px"><article class="action-card"><h2>{{ t('products_stock') }}</h2><p>{{ t('products_stock_description') }}</p><a href="/admin/products" class="btn btn-secondary">{{ t('manage_products') }}</a></article><article class="action-card"><h2>{{ t('orders') }}</h2><p>{{ t('orders_description') }}</p><a href="/admin/orders" class="btn btn-secondary">{{ t('manage_orders') }}</a></article></section>{% endif %}
 {% endblock %}

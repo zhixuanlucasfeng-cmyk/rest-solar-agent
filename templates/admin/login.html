@@ -4,34 +4,25 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ t('admin_login_title') }}</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/admin.css">
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
-  <div class="bg-white p-8 rounded shadow w-full max-w-sm">
-    <form action="/admin/language" method="post" class="flex items-center justify-end gap-2 mb-4 text-sm">
-      <input type="hidden" name="next" value="{{ request.url.path }}">
-      <label for="admin-language">{{ t('language') }}</label>
-      <select id="admin-language" name="language" class="border rounded px-2 py-1" onchange="this.form.requestSubmit()">
-        {% for code in supported_languages %}
-        <option value="{{ code }}" {% if lang == code %}selected{% endif %}>{{ {'en': 'English', 'zh': '中文', 'fr': 'Français'}[code] }}</option>
-        {% endfor %}
-      </select>
-      <noscript><button type="submit">{{ t('save') }}</button></noscript>
-    </form>
-    <h1 class="text-2xl font-bold mb-6 text-blue-800">{{ t('brand_admin') }}</h1>
-    {% if error %}
-    <div class="bg-red-100 text-red-700 p-3 rounded mb-4 text-sm">{{ t(error) }}</div>
-    {% endif %}
-    <form action="/admin/login" method="post" class="flex flex-col gap-4">
-      <input type="email" name="email" placeholder="{{ t('email') }}" required
-             class="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-      <input type="password" name="password" placeholder="{{ t('password') }}" required
-             class="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-      <button type="submit"
-              class="bg-blue-800 text-white py-2 rounded hover:bg-blue-700 text-sm font-medium">
-        {{ t('login') }}
-      </button>
-    </form>
-  </div>
-</body>
-</html>
+<body><main class="login-page"><section class="login-record">
+  <header><img src="/static/logo.svg" alt="Restar Solar"><span>{{ t('employee_operations') }}</span></header>
+  <form action="/admin/language" method="post" class="login-language">
+    <input type="hidden" name="next" value="{{ request.url.path }}">
+    <label for="admin-language">{{ t('language') }}</label>
+    <select id="admin-language" name="language" onchange="this.form.requestSubmit()">
+      {% for code in supported_languages %}
+      <option value="{{ code }}" {% if lang == code %}selected{% endif %}>{{ {'en': 'English', 'zh': '中文', 'fr': 'Français'}[code] }}</option>
+      {% endfor %}
+    </select>
+    <noscript><button type="submit">{{ t('save') }}</button></noscript>
+  </form>
+  <div class="login-copy"><span class="page-kicker">{{ t('secure_access') }}</span><h1>{{ t('manage_local_market') }}</h1><p>{{ t('login_scope_description') }}</p></div>
+  {% if error %}<div class="login-error" role="alert">{{ t(error) }}</div>{% endif %}
+  <form action="/admin/login" method="post" class="login-form">
+    <label>{{ t('email') }}<input type="email" name="email" placeholder="{{ t('email') }}" autocomplete="username" required></label>
+    <label>{{ t('password') }}<input type="password" name="password" placeholder="{{ t('password') }}" autocomplete="current-password" required></label>
+    <button type="submit" class="btn">{{ t('login') }}</button>
+  </form>
+</section></main></body></html>

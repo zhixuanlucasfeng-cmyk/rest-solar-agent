@@ -1,8 +1,8 @@
 {% extends "admin/base.html" %}
 {% block title %}{{ t('reports') }}{% endblock %}
+{% block page_header %}<div class="page-head"><div><span class="page-kicker">{{ t('records') }}</span><h1>{{ t('reports') }}</h1><p>{{ t('reports_description') }}</p></div></div>{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-6">{{ t('reports') }}</h1>
-<div class="bg-white rounded shadow p-6 max-w-md">
+<div class="panel p-6 max-w-md">
   <h2 class="font-semibold mb-2">{{ t('export_conversations') }}</h2>
   <p class="text-sm text-gray-500 mb-4">{{ t('export_description') }}</p>
   <form action="/admin/reports/export" method="post">

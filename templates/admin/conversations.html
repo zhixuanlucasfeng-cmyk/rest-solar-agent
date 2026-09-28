@@ -1,8 +1,8 @@
 {% extends "admin/base.html" %}
 {% block title %}{{ t('conversations') }}{% endblock %}
+{% block page_header %}<div class="page-head"><div><span class="page-kicker">{{ t('customer_history') }}</span><h1>{{ t('conversations') }}</h1><p>{{ t('conversations_description') }}</p></div></div>{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-6">{{ t('conversations') }}</h1>
-<table class="w-full bg-white rounded shadow text-sm">
+<div class="ops-table-wrap"><table class="ops-table">
   <thead class="bg-gray-50 text-left">
     <tr>
       <th class="p-3">{{ t('id') }}</th><th class="p-3">{{ t('session') }}</th>
@@ -20,5 +20,5 @@
     </tr>
     {% endfor %}
   </tbody>
-</table>
+</table></div>
 {% endblock %}

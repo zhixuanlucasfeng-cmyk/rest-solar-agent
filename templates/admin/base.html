@@ -5,41 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}{{ t('brand_admin') }}{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/admin.css">
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
 </head>
-<body class="bg-gray-100 min-h-screen">
-  <nav class="bg-blue-800 text-white px-6 py-3 flex justify-between items-center">
-    <a href="/admin/dashboard" class="font-bold text-lg flex items-center gap-2"><img src="/static/logo-white.svg" alt="" style="height:22px;width:auto">{{ t('brand_admin') }}</a>
-    <div class="flex gap-4 text-sm items-center flex-wrap">
-      <form action="/admin/language" method="post" class="inline-flex items-center gap-1">
-        <input type="hidden" name="next" value="{{ request.url.path }}">
-        <label for="admin-language">{{ t('language') }}</label>
-        <select id="admin-language" name="language" class="rounded px-1 py-1 text-gray-900" onchange="this.form.requestSubmit()">
-          {% for code in supported_languages %}
-          <option value="{{ code }}" {% if lang == code %}selected{% endif %}>{{ {'en': 'English', 'zh': '中文', 'fr': 'Français'}[code] }}</option>
-          {% endfor %}
-        </select>
-        <noscript><button type="submit">{{ t('save') }}</button></noscript>
-      </form>
-      <a href="/admin/inbox" class="hover:underline">{{ t('inbox') }}</a>
-      <a href="/admin/conversations" class="hover:underline">{{ t('conversations') }}</a>
-      {% if current_user.role != "agent" %}
-      <a href="/admin/products" class="hover:underline">{{ t('products') }}</a>
-      <a href="/admin/orders" class="hover:underline">{{ t('orders') }}</a>
-      <a href="/admin/tickets" class="hover:underline">{{ t('tickets') }}</a>
-      {% endif %}
-      {% if current_user.role == "superadmin" %}
-      <a href="/admin/rules" class="hover:underline">{{ t('rules') }}</a>
-      <a href="/admin/users" class="hover:underline">{{ t('users') }}</a>
-      <a href="/admin/reports" class="hover:underline">{{ t('reports') }}</a>
-      {% endif %}
-      <form action="/admin/logout" method="post" class="inline">
-        <button type="submit" class="hover:underline">{{ t('logout') }}</button>
-      </form>
-    </div>
+<body><div class="admin-shell">
+<aside class="admin-sidebar">
+  <a href="/admin/dashboard" class="admin-brand"><img src="/static/logo-white.svg" alt="Restar Solar"><span>{{ t('operations') }}</span></a>
+  <div class="admin-country"><span>{{ t('assigned_market') }}</span><strong>{{ current_user.country or t('all_countries') }}</strong><small>{{ t(current_user.role) }}</small></div>
+  <form action="/admin/language" method="post" class="admin-language">
+    <input type="hidden" name="next" value="{{ request.url.path }}">
+    <label for="admin-language">{{ t('language') }}</label>
+    <select id="admin-language" name="language" class="rounded px-1 py-1 text-gray-900" onchange="this.form.requestSubmit()">
+      {% for code in supported_languages %}
+      <option value="{{ code }}" {% if lang == code %}selected{% endif %}>{{ {'en': 'English', 'zh': '中文', 'fr': 'Français'}[code] }}</option>
+      {% endfor %}
+    </select>
+    <noscript><button type="submit">{{ t('save') }}</button></noscript>
+  </form>
+  <nav class="admin-nav" aria-label="{{ t('operations') }}">
+    <a href="/admin/dashboard" class="admin-nav-link {% if request.url.path == '/admin/dashboard' %}is-active{% endif %}"><span>01</span>{{ t('overview') }}</a>
+    <a href="/admin/inbox" class="admin-nav-link {% if request.url.path.startswith('/admin/inbox') %}is-active{% endif %}"><span>02</span>{{ t('live_inbox') }}</a>
+    <a href="/admin/conversations" class="admin-nav-link {% if request.url.path.startswith('/admin/conversations') %}is-active{% endif %}"><span>03</span>{{ t('conversations') }}</a>
+    {% if current_user.role != "agent" %}
+    <a href="/admin/products" class="admin-nav-link {% if request.url.path.startswith('/admin/products') %}is-active{% endif %}"><span>04</span>{{ t('products_stock') }}</a>
+    <a href="/admin/orders" class="admin-nav-link {% if request.url.path.startswith('/admin/orders') %}is-active{% endif %}"><span>05</span>{{ t('orders') }}</a>
+    <a href="/admin/tickets" class="admin-nav-link {% if request.url.path.startswith('/admin/tickets') %}is-active{% endif %}"><span>06</span>{{ t('tickets') }}</a>
+    {% endif %}
+    {% if current_user.role == "superadmin" %}
+    <a href="/admin/rules" class="admin-nav-link {% if request.url.path.startswith('/admin/rules') %}is-active{% endif %}"><span>07</span>{{ t('rules') }}</a>
+    <a href="/admin/users" class="admin-nav-link {% if request.url.path.startswith('/admin/users') %}is-active{% endif %}"><span>08</span>{{ t('users') }}</a>
+    <a href="/admin/reports" class="admin-nav-link {% if request.url.path.startswith('/admin/reports') %}is-active{% endif %}"><span>09</span>{{ t('reports') }}</a>
+    {% endif %}
   </nav>
-  <main class="p-6">
-    {% block content %}{% endblock %}
-  </main>
-</body>
-</html>
+  <form action="/admin/logout" method="post" class="admin-logout"><button type="submit">{{ t('logout') }}</button></form>
+</aside>
+<main class="admin-main">
+  <header class="admin-mobile-head"><img src="/static/logo.svg" alt="Restar Solar"><strong>{{ current_user.country or t('all_countries') }}</strong></header>
+  {% block page_header %}{% endblock %}{% block content %}{% endblock %}
+</main>
+</div></body></html>

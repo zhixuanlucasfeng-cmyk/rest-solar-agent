@@ -20,7 +20,10 @@ DATABASE_URL = _normalize_database_url(
     os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/rest_solar.db")
 )
 
-engine = create_async_engine(DATABASE_URL, echo=False)
+# Render processes can outlive Neon's idle PostgreSQL connections. Validate a
+# pooled connection before handing it to a request so SQLAlchemy transparently
+# replaces connections that Neon has already closed.
+engine = create_async_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 

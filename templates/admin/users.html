@@ -1,7 +1,7 @@
 {% extends "admin/base.html" %}
 {% block title %}{{ t('users') }}{% endblock %}
+{% block page_header %}<div class="page-head"><div><span class="page-kicker">{{ t('access_control') }}</span><h1>{{ t('admin_users') }}</h1><p>{{ t('users_description') }}</p></div></div>{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">{{ t('admin_users') }}</h1>
 <form action="/admin/users" method="post" class="bg-white rounded shadow p-4 mb-6 grid grid-cols-3 gap-3 max-w-xl">
   <input name="email" type="email" placeholder="{{ t('email') }}" required class="border rounded px-3 py-2 text-sm">
   <input name="password" type="password" placeholder="{{ t('password') }}" required class="border rounded px-3 py-2 text-sm">
@@ -19,7 +19,7 @@
   </select>
   <button type="submit" class="bg-blue-800 text-white py-2 rounded text-sm col-span-3">{{ t('create_user') }}</button>
 </form>
-<table class="w-full bg-white rounded shadow text-sm">
+<div class="ops-table-wrap"><table class="ops-table">
   <thead class="bg-gray-50 text-left">
     <tr><th class="p-3">{{ t('email') }}</th><th class="p-3">{{ t('role') }}</th><th class="p-3">{{ t('country') }}</th><th class="p-3">{{ t('created') }}</th></tr>
   </thead>
@@ -33,5 +33,5 @@
     </tr>
     {% endfor %}
   </tbody>
-</table>
+</table></div>
 {% endblock %}

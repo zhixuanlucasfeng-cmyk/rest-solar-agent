@@ -1,38 +1,39 @@
 {% extends "admin/base.html" %}
 {% block title %}{{ t('inbox') }}{% endblock %}
+{% block page_header %}<div class="page-head"><div><span class="page-kicker">{{ t('human_support') }}</span><h1>{{ t('live_inbox') }}</h1><p>{{ t('live_inbox_description') }}</p></div><span id="connection-status" class="connection-state">{{ t('connection_connecting') }}</span></div>{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">{{ t('live_inbox') }}</h1>
-
-<div class="flex gap-4" style="height:70vh">
+<div class="inbox-layout">
   <!-- Queue -->
-  <div class="w-72 bg-white rounded shadow overflow-y-auto shrink-0">
-    <div class="px-3 py-2 text-xs font-semibold text-gray-500 border-b">{{ t('waiting_live') }}</div>
+  <div class="queue-panel">
+    <div class="queue-label">{{ t('waiting_live') }}</div>
     <ul id="queue"></ul>
-    <p id="queue-empty" class="p-3 text-sm text-gray-400">{{ t('no_customers_waiting') }}</p>
+    <p id="queue-empty" class="empty-state">{{ t('no_customers_waiting') }}</p>
   </div>
 
   <!-- Chat -->
-  <div class="flex-1 bg-white rounded shadow flex flex-col">
-    <div id="chat-head" class="px-4 py-2 border-b flex justify-between items-center">
-      <span id="chat-title" class="font-semibold text-sm text-gray-500">{{ t('select_conversation') }}</span>
-      <span class="flex gap-2">
-        <button id="btn-takeover" onclick="takeover()" class="hidden bg-orange-500 text-white px-3 py-1 rounded text-sm">{{ t('take_over') }}</button>
-        <button id="btn-release" onclick="release()" class="hidden bg-gray-500 text-white px-3 py-1 rounded text-sm">{{ t('release_to_ai') }}</button>
+  <div class="chat-panel">
+    <div id="chat-head" class="chat-head">
+      <span id="chat-title">{{ t('select_conversation') }}</span>
+      <span>
+        <button id="btn-takeover" onclick="takeover()" class="hidden btn btn-accent">{{ t('take_over') }}</button>
+        <button id="btn-release" onclick="release()" class="hidden btn btn-secondary">{{ t('release_to_ai') }}</button>
       </span>
     </div>
-    <div id="thread" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
-    <div id="reply-bar" class="hidden p-3 border-t flex gap-2">
-      <input id="reply-input" type="text" placeholder="{{ t('type_your_reply') }}"
-        class="flex-1 border rounded px-3 py-2 text-sm"
-        onkeydown="if(event.key==='Enter')sendReply()">
-      <button onclick="sendReply()" class="bg-blue-700 text-white px-4 py-2 rounded text-sm">{{ t('send') }}</button>
+    <div id="thread" class="message-thread"></div>
+    <div id="reply-bar" class="hidden chat-composer">
+      <div>
+        <textarea id="reply-input" rows="2" placeholder="{{ t('type_your_reply') }}"
+          onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)&&!event.isComposing&&!event.repeat){event.preventDefault();sendReply()}"></textarea>
+        <p class="shortcut">{{ t('reply_shortcut') }}</p>
+      </div>
+      <button onclick="sendReply()" class="btn">{{ t('send') }}</button>
     </div>
   </div>
 </div>
 
 <script>
 const MY_ID = {{ current_user.id }};
-const queueLabels = {{ {'waiting': t('waiting'), 'you': t('you'), 'live': t('live')}|tojson }};
+const queueLabels = {{ {'waiting': t('waiting'), 'you': t('owned_by_you'), 'live': t('live_with_agent'), 'preview': t('no_message_preview')}|tojson }};
 
 function ding() {
   try {
@@ -51,8 +52,9 @@ const queue = new Map();      // conv_id -> {mode, agent_id, preview, country}
 
 function connect() {
   ws = new WebSocket(`${proto}://${location.host}/ws/admin/${MY_ID}`);
+  ws.onopen = () => document.getElementById('connection-status').textContent = {{ t('connection_online')|tojson }};
   ws.onmessage = (e) => handle(JSON.parse(e.data));
-  ws.onclose = () => setTimeout(connect, 3000);
+  ws.onclose = () => { document.getElementById('connection-status').textContent = {{ t('connection_reconnecting')|tojson }}; setTimeout(connect, 3000); };
 }
 
 function handle(m) {
@@ -86,20 +88,26 @@ function handle(m) {
 
 function renderQueue() {
   const ul = document.getElementById('queue');
-  ul.innerHTML = '';
+  ul.textContent = '';
   document.getElementById('queue-empty').style.display = queue.size ? 'none' : 'block';
   [...queue.values()].forEach(it => {
     const li = document.createElement('li');
     const mine = it.agent_id === MY_ID;
-    li.className = 'px-3 py-2 border-b cursor-pointer text-sm hover:bg-gray-50 ' +
-      (it.conversation_id === openConv ? 'bg-blue-50 ' : '');
-    li.innerHTML = `
-      <div class="flex justify-between">
-        <span class="font-medium">#${it.conversation_id} <span class="text-xs text-gray-400">${it.country || ''}</span></span>
-        <span class="text-xs ${it.mode === 'waiting' ? 'text-orange-600' : mine ? 'text-green-600' : 'text-gray-400'}">
-          ${it.mode === 'waiting' ? queueLabels.waiting : mine ? queueLabels.you : queueLabels.live}</span>
-      </div>
-      <div class="text-xs text-gray-500 truncate">${it.preview || ''}</div>`;
+    li.className = 'queue-item ' + (it.conversation_id === openConv ? 'is-active' : '');
+    const top = document.createElement('div');
+    top.className = 'queue-item__top';
+    const identity = document.createElement('strong');
+    identity.textContent = `#${it.conversation_id} · ${it.country || '—'}`;
+    const status = document.createElement('span');
+    status.className = 'queue-item__status';
+    status.textContent = it.mode === 'waiting' ? queueLabels.waiting : mine ? queueLabels.you : queueLabels.live;
+    top.appendChild(identity);
+    top.appendChild(status);
+    const preview = document.createElement('div');
+    preview.className = 'queue-item__preview';
+    preview.textContent = it.preview || queueLabels.preview;
+    li.appendChild(top);
+    li.appendChild(preview);
     li.onclick = () => openConversation(it.conversation_id);
     ul.appendChild(li);
   });
@@ -134,10 +142,8 @@ function show(id, on) { document.getElementById(id).classList.toggle('hidden', !
 function addBubble(role, text) {
   const thread = document.getElementById('thread');
   const div = document.createElement('div');
-  const cls = role === 'user'
-    ? 'bg-blue-100 ml-auto'
-    : role === 'agent' ? 'bg-green-100' : 'bg-gray-100';
-  div.className = `${cls} rounded px-3 py-2 text-sm max-w-md w-fit`;
+  const cls = role === 'user' ? 'message-bubble--user' : role === 'agent' ? 'message-bubble--agent' : 'message-bubble--assistant';
+  div.className = `message-bubble ${cls}`;
   div.textContent = text;
   thread.appendChild(div);
   thread.scrollTop = thread.scrollHeight;

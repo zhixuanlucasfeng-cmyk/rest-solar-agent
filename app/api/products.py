@@ -1,6 +1,6 @@
 import math
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
@@ -18,10 +18,20 @@ def _finite_price(price: float | None) -> float | None:
     return price if price is not None and math.isfinite(price) else None
 
 
+def _public_media_url(request: Request, asset_id: int | None, legacy_path: str | None) -> str | None:
+    if asset_id is not None:
+        return str(request.url_for("get_media", asset_id=asset_id))
+    relative_url = media_url(asset_id, legacy_path)
+    if relative_url is None:
+        return None
+    return f"{str(request.base_url).rstrip('/')}{relative_url}"
+
+
 @router.get("/api/products")
-async def list_products(country: str | None = Query(None), db: AsyncSession = Depends(get_db)):
+async def list_products(request: Request, country: str | None = Query(None), db: AsyncSession = Depends(get_db)):
     """Public, read-only product feed for the country marketing sites.
     Excludes internal cost fields (duty_rate/vat_rate) — this is for display, not quoting.
+    Public id and sku both identify the SKU; database_id exposes the numeric row id.
 
     Query parameters:
     - country: Optional country code (CM/NG/SD/ML). If provided and valid, returns shared products + country products.
@@ -43,9 +53,10 @@ async def list_products(country: str | None = Query(None), db: AsyncSession = De
     products = result.scalars().all()
     return [
         {
-            "id": p.id,
+            "id": p.sku,
+            "database_id": p.id,
             "sku": p.sku,
-            "country": p.country,
+            "country": normalize_country(p.country) if p.country else None,
             "status": p.status,
             "name": p.name,
             "category": p.category,
@@ -65,9 +76,9 @@ async def list_products(country: str | None = Query(None), db: AsyncSession = De
             "featured": p.featured,
             "features": p.features,
             "use_cases": p.use_cases,
-            "image": media_url(p.image_asset_id, p.image_path),
-            "images": [media_url(img.asset_id, img.path) for img in p.images],
-            "datasheet": media_url(p.datasheet_asset_id, p.datasheet_path),
+            "image": _public_media_url(request, p.image_asset_id, p.image_path),
+            "images": [_public_media_url(request, img.asset_id, img.path) for img in p.images],
+            "datasheet": _public_media_url(request, p.datasheet_asset_id, p.datasheet_path),
         }
         for p in products
     ]

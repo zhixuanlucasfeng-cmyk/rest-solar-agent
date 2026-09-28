@@ -1,8 +1,8 @@
 {% extends "admin/base.html" %}
 {% block title %}{{ t('tickets') }}{% endblock %}
+{% block page_header %}<div class="page-head"><div><span class="page-kicker">{{ t('after_sales_work') }}</span><h1>{{ t('tickets') }}</h1><p>{{ t('tickets_description') }}</p></div></div>{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-6">{{ t('tickets') }}</h1>
-<table class="w-full bg-white rounded shadow text-sm">
+<div class="ops-table-wrap"><table class="ops-table">
   <thead class="bg-gray-50 text-left">
     <tr><th class="p-3">{{ t('id') }}</th><th class="p-3">{{ t('subject') }}</th><th class="p-3">{{ t('status') }}</th><th class="p-3">{{ t('created') }}</th><th class="p-3"></th></tr>
   </thead>
@@ -11,7 +11,7 @@
     <tr class="border-t">
       <td class="p-3">#{{ ticket.id }}</td>
       <td class="p-3">{{ ticket.subject }}</td>
-      <td class="p-3"><span class="{% if ticket.status == 'open' %}text-orange-600{% else %}text-gray-400{% endif %} text-xs font-medium">{{ t(ticket.status) }}</span></td>
+      <td class="p-3"><span class="status-label">{{ t(ticket.status) }}</span></td>
       <td class="p-3">{{ ticket.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
       <td class="p-3">
         {% if ticket.status == "open" %}
@@ -23,5 +23,5 @@
     </tr>
     {% endfor %}
   </tbody>
-</table>
+</table></div>
 {% endblock %}
