@@ -747,3 +747,72 @@ async def test_product_status_and_list_reject_invalid_values(product_lifecycle_e
         missing = await c.post("/admin/products/99999/status", data={"status": "inactive"})
     assert (invalid_status.status_code, invalid_filter.status_code, missing.status_code) == (400, 400, 404)
     assert (await _product_by_sku(Session, "NG-LIFE")).status == "active"
+
+
+@pytest.mark.asyncio
+async def test_country_product_page_shows_local_price_status_tabs_and_safe_actions(product_env):
+    import re
+
+    client, _, ng_token, ids = product_env
+    async with client(ng_token) as c:
+        active = await c.get("/admin/products")
+        assert active.status_code == 200
+        assert re.search(r'<label[^>]*for="price_local"[^>]*>[^<]*NGN', active.text)
+        assert 'name="price_local"' in active.text
+        assert all(f'status={state}' in active.text for state in ("active", "inactive", "archived"))
+        assert f'/admin/products/{ids["NGP-1"]}/status' in active.text
+        assert re.search(r'name="status" value="inactive"[^>]*>\s*Unpublish', active.text)
+        assert f'/admin/products/{ids["SHARE-1"]}/status' not in active.text
+        assert f'/admin/products/{ids["SHARE-1"]}/edit' not in active.text
+        assert '/delete"' not in active.text
+
+        assert (await c.post(f'/admin/products/{ids["NGP-1"]}/status', data={"status": "inactive"})).status_code == 302
+        inactive = await c.get("/admin/products?status=inactive")
+        assert re.search(r'name="status" value="archived"[^>]*>\s*Archive', inactive.text)
+        assert 'Inactive' in inactive.text
+        assert '/delete"' not in inactive.text
+
+        assert (await c.post(f'/admin/products/{ids["NGP-1"]}/status', data={"status": "archived"})).status_code == 302
+        archived = await c.get("/admin/products?status=archived")
+        assert re.search(r'name="status" value="active"[^>]*>\s*Restore', archived.text)
+        assert 'Archived' in archived.text
+        assert '/delete"' not in archived.text
+
+
+@pytest.mark.asyncio
+async def test_product_status_tabs_preserve_category_filter(product_lifecycle_env):
+    client, _, ng_token, _ = product_lifecycle_env
+    async with client(ng_token) as c:
+        response = await c.get("/admin/products?category=solar_panels&status=active")
+    assert response.status_code == 200
+    assert 'href="/admin/products?category=solar_panels&amp;status=inactive"' in response.text
+
+
+@pytest.mark.asyncio
+async def test_country_product_edit_shows_local_price_and_status(product_env):
+    import re
+
+    client, _, ng_token, ids = product_env
+    async with client(ng_token) as c:
+        response = await c.get(f'/admin/products/{ids["NGP-1"]}/edit')
+    assert response.status_code == 200
+    assert re.search(r'<label[^>]*for="price_local"[^>]*>[^<]*NGN', response.text)
+    assert 'name="price_local"' in response.text
+    assert 'name="price_cny"' in response.text
+    assert re.search(r'<select[^>]*name="status"[^>]*>.*?<option value="active" selected', response.text, re.S)
+    assert 'name="datasheet"' in response.text
+    assert 'name="primary_image"' in response.text
+    assert 'name="gallery_images"' in response.text
+
+
+@pytest.mark.asyncio
+async def test_superadmin_product_page_keeps_permanent_delete_and_generic_shared_price(product_env):
+    client, su_token, _, ids = product_env
+    async with client(su_token) as c:
+        listing = await c.get("/admin/products")
+        edit = await c.get(f'/admin/products/{ids["SHARE-1"]}/edit')
+    assert listing.status_code == edit.status_code == 200
+    assert f'/admin/products/{ids["SHARE-1"]}/delete' in listing.text
+    assert 'Delete permanently' in listing.text
+    assert 'Local price' in edit.text
+    assert 'name="price_local"' in edit.text

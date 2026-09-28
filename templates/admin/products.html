@@ -3,12 +3,12 @@
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">Products</h1>
 
-<form action="/admin/products" method="post" enctype="multipart/form-data" class="bg-white rounded shadow p-4 mb-6 grid grid-cols-3 gap-3 max-w-3xl">
-  <input name="name" placeholder="Name" required class="border rounded px-3 py-2 text-sm col-span-2">
+<form action="/admin/products" method="post" enctype="multipart/form-data" class="bg-white rounded shadow p-4 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-3xl">
+  <input name="name" placeholder="Name" required class="border rounded px-3 py-2 text-sm sm:col-span-2">
   <input name="sku" placeholder="SKU" required class="border rounded px-3 py-2 text-sm">
 
   {% if current_user.role == "superadmin" %}
-  <select name="country" class="border rounded px-3 py-2 text-sm col-span-3">
+  <select name="country" class="border rounded px-3 py-2 text-sm sm:col-span-3">
     <option value="">Shared (all countries)</option>
     <option value="CM">CM</option>
     <option value="NG">NG</option>
@@ -32,8 +32,11 @@
   <input name="voltage" placeholder="Voltage" class="border rounded px-3 py-2 text-sm">
   <input name="dimensions" placeholder="Dimensions" class="border rounded px-3 py-2 text-sm">
 
-  <input name="price_cny" type="number" step="0.01" placeholder="Price CNY (optional)" class="border rounded px-3 py-2 text-sm">
-  <input name="price_xaf" type="number" step="0.01" placeholder="Price XAF (optional)" class="border rounded px-3 py-2 text-sm">
+  <label for="price_local" class="text-sm text-gray-700 flex flex-col gap-1">
+    Local price{% if current_user.country %} ({{ currency_for_country(current_user.country) }}){% endif %}
+    <input id="price_local" name="price_local" type="number" min="0" step="0.01" class="border rounded px-3 py-2 text-sm">
+  </label>
+  <input name="price_cny" type="number" min="0" step="0.01" placeholder="CNY (internal, optional)" class="border rounded px-3 py-2 text-sm">
   <input name="weight_kg" type="number" step="0.01" placeholder="Weight (kg)" class="border rounded px-3 py-2 text-sm">
 
   <input name="stock" type="number" placeholder="Stock" value="0" class="border rounded px-3 py-2 text-sm">
@@ -42,41 +45,53 @@
   </label>
   <div></div>
 
-  <textarea name="features" placeholder="Features (one per line)" rows="2" class="border rounded px-3 py-2 text-sm col-span-3"></textarea>
-  <textarea name="use_cases" placeholder="Use cases" rows="2" class="border rounded px-3 py-2 text-sm col-span-3"></textarea>
+  <textarea name="features" placeholder="Features (one per line)" rows="2" class="border rounded px-3 py-2 text-sm sm:col-span-3"></textarea>
+  <textarea name="use_cases" placeholder="Use cases" rows="2" class="border rounded px-3 py-2 text-sm sm:col-span-3"></textarea>
 
-  <label class="text-xs text-gray-500 col-span-3 -mb-2">Datasheet (PDF)</label>
-  <input name="datasheet" type="file" accept="application/pdf" class="border rounded px-3 py-2 text-sm col-span-3">
+  <label class="text-xs text-gray-500 sm:col-span-3 -mb-2">Datasheet (PDF)</label>
+  <input name="datasheet" type="file" accept="application/pdf" class="border rounded px-3 py-2 text-sm sm:col-span-3">
 
-  <label class="text-xs text-gray-500 col-span-3 -mb-2">Primary image</label>
-  <input name="primary_image" type="file" accept="image/*" class="border rounded px-3 py-2 text-sm col-span-3">
+  <label class="text-xs text-gray-500 sm:col-span-3 -mb-2">Primary image</label>
+  <input name="primary_image" type="file" accept="image/*" class="border rounded px-3 py-2 text-sm sm:col-span-3">
 
-  <label class="text-xs text-gray-500 col-span-3 -mb-2">Additional gallery images</label>
-  <input name="gallery_images" type="file" accept="image/*" multiple class="border rounded px-3 py-2 text-sm col-span-3">
+  <label class="text-xs text-gray-500 sm:col-span-3 -mb-2">Additional gallery images</label>
+  <input name="gallery_images" type="file" accept="image/*" multiple class="border rounded px-3 py-2 text-sm sm:col-span-3">
 
-  <button type="submit" class="bg-blue-800 text-white py-2 rounded text-sm col-span-3">Add Product</button>
+  <button type="submit" class="bg-blue-800 text-white min-h-10 px-3 rounded text-sm sm:col-span-3">Add Product</button>
 </form>
 
+<nav aria-label="Product status" class="flex gap-2 mb-4 text-sm flex-wrap">
+  {% for state in product_statuses %}
+  <a href="/admin/products?{% if selected_category %}category={{ selected_category|urlencode }}&amp;{% endif %}status={{ state }}"
+     class="min-h-10 inline-flex items-center px-4 rounded-full {{ 'bg-blue-800 text-white' if selected_status == state else 'bg-white border' }}"
+     {% if selected_status == state %}aria-current="page"{% endif %}>
+    {{ state|capitalize }} ({{ status_counts[state] }})
+  </a>
+  {% endfor %}
+</nav>
+
 <div class="flex gap-2 mb-4 text-sm flex-wrap">
-  <a href="/admin/products"
-     class="px-3 py-1 rounded-full {{ 'bg-blue-800 text-white' if not selected_category else 'bg-white border' }}">
+  <a href="/admin/products{% if selected_status != 'active' %}?status={{ selected_status }}{% endif %}"
+     class="min-h-10 inline-flex items-center px-3 rounded-full {{ 'bg-blue-800 text-white' if not selected_category else 'bg-white border' }}">
      All ({{ total_count }})
   </a>
   {% for c in categories %}
-  <a href="/admin/products?category={{ c }}"
-     class="px-3 py-1 rounded-full {{ 'bg-blue-800 text-white' if selected_category == c else 'bg-white border' }}">
+  <a href="/admin/products?category={{ c|urlencode }}{% if selected_status != 'active' %}&amp;status={{ selected_status }}{% endif %}"
+     class="min-h-10 inline-flex items-center px-3 rounded-full {{ 'bg-blue-800 text-white' if selected_category == c else 'bg-white border' }}">
      {{ c }}
   </a>
   {% endfor %}
 </div>
 
-<table class="w-full bg-white rounded shadow text-sm">
+<div class="overflow-x-auto rounded shadow">
+<table class="w-full min-w-[900px] bg-white text-sm">
   <thead class="bg-gray-50 text-left">
     <tr>
       <th class="p-3"></th>
       <th class="p-3">SKU</th>
       <th class="p-3">Name</th>
       <th class="p-3">Country</th>
+      <th class="p-3">Status</th>
       <th class="p-3">Category</th>
       <th class="p-3">Specs</th>
       <th class="p-3">Price</th>
@@ -104,6 +119,9 @@
       </td>
       <td class="p-3 text-xs">{{ p.country or 'Shared' }}</td>
       <td class="p-3 text-xs">
+        <span class="inline-flex rounded-full px-2 py-1 font-medium {{ 'bg-green-100 text-green-800' if p.status == 'active' else 'bg-amber-100 text-amber-800' if p.status == 'inactive' else 'bg-slate-200 text-slate-700' }}">{{ p.status|capitalize }}</span>
+      </td>
+      <td class="p-3 text-xs">
         {{ p.category or '-' }}{% if p.subcategory %}<br><span class="text-gray-400">{{ p.subcategory }}</span>{% endif %}
       </td>
       <td class="p-3 text-xs text-gray-600">
@@ -113,8 +131,12 @@
         {% if p.voltage %} / {{ p.voltage }}{% endif %}
       </td>
       <td class="p-3">
-        {% if p.price_cny and p.price_xaf %}
-          ¥{{ "%.0f"|format(p.price_cny) }} / {{ "%.0f"|format(p.price_xaf) }} XAF
+        {% if p.price_local is not none %}
+          {{ "%.2f"|format(p.price_local) }} {{ currency_for_country(p.country) or 'local' }}
+        {% elif p.price_xaf is not none and p.country == 'CM' %}
+          {{ "%.2f"|format(p.price_xaf) }} XAF
+        {% elif p.price_cny is not none %}
+          ¥{{ "%.2f"|format(p.price_cny) }}
         {% else %}
           <span class="text-gray-400 italic">On request</span>
         {% endif %}
@@ -126,12 +148,25 @@
         <a href="{{ ds }}" target="_blank" class="text-blue-700 hover:underline text-xs">PDF ↓</a>
         {% endif %}
       </td>
-      <td class="p-3 whitespace-nowrap">
-        {% if current_user.country is none or p.country == current_user.country %}
-        <a href="/admin/products/{{ p.id }}/edit" class="text-blue-700 hover:underline text-xs mr-3">Edit</a>
-        <form action="/admin/products/{{ p.id }}/delete" method="post" class="inline">
-          <button type="submit" class="text-red-500 hover:underline text-xs">Delete</button>
-        </form>
+      <td class="p-3">
+        {% if current_user.role == 'superadmin' or p.country == current_user.country %}
+        <div class="flex flex-wrap items-center gap-2">
+          <a href="/admin/products/{{ p.id }}/edit" class="min-h-10 inline-flex items-center px-2 text-blue-700 hover:underline text-xs">Edit</a>
+          <form action="/admin/products/{{ p.id }}/status" method="post">
+            {% if p.status == 'active' %}
+            <button type="submit" name="status" value="inactive" class="min-h-10 px-3 rounded border border-amber-600 text-amber-800 text-xs">Unpublish</button>
+            {% elif p.status == 'inactive' %}
+            <button type="submit" name="status" value="archived" class="min-h-10 px-3 rounded border border-slate-500 text-slate-700 text-xs">Archive</button>
+            {% else %}
+            <button type="submit" name="status" value="active" class="min-h-10 px-3 rounded border border-green-700 text-green-800 text-xs">Restore</button>
+            {% endif %}
+          </form>
+          {% if current_user.role == 'superadmin' %}
+          <form action="/admin/products/{{ p.id }}/delete" method="post">
+            <button type="submit" class="min-h-10 px-3 rounded border border-red-300 text-red-700 text-xs">Delete permanently</button>
+          </form>
+          {% endif %}
+        </div>
         {% else %}
         <span class="text-gray-400 text-xs">read-only</span>
         {% endif %}
@@ -140,4 +175,5 @@
     {% endfor %}
   </tbody>
 </table>
+</div>
 {% endblock %}

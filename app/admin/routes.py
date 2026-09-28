@@ -10,11 +10,12 @@ from app.admin.auth import verify_password, create_access_token, hash_password
 from app.admin.deps import get_current_admin, require_superadmin, require_admin, scope_clause, assert_visible
 from app.countries import normalize_country, is_valid_country, COUNTRIES
 from app.media import media_url, save_upload
-from app.product_catalog import PRODUCT_STATUSES, validate_product_values
+from app.product_catalog import PRODUCT_STATUSES, currency_for_country, validate_product_values
 
 router = APIRouter(prefix="/admin")
 templates = Jinja2Templates(directory="templates")
 templates.env.globals["media_url"] = media_url
+templates.env.globals["currency_for_country"] = currency_for_country
 
 PRODUCT_CATEGORIES = ["solar_panels", "batteries", "inverters", "charge_controllers", "ess", "other"]
 ORDER_STATUSES = ["pending", "contacted", "quoted", "paid", "shipped", "closed"]
@@ -327,7 +328,10 @@ async def edit_product_page(
     _assert_product_writable(current_user, product)
     return templates.TemplateResponse(
         request=request, name="admin/product_edit.html",
-        context={"current_user": current_user, "p": product, "category_choices": PRODUCT_CATEGORIES},
+        context={
+            "current_user": current_user, "p": product,
+            "category_choices": PRODUCT_CATEGORIES, "product_statuses": PRODUCT_STATUSES,
+        },
     )
 
 
