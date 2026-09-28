@@ -1,15 +1,15 @@
 {% extends "admin/base.html" %}
-{% block title %}Products{% endblock %}
+{% block title %}{{ t('products') }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">Products</h1>
+<h1 class="text-2xl font-bold mb-4">{{ t('products') }}</h1>
 
 <form action="/admin/products" method="post" enctype="multipart/form-data" class="bg-white rounded shadow p-4 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-3xl">
-  <input name="name" placeholder="Name" required class="border rounded px-3 py-2 text-sm sm:col-span-2">
-  <input name="sku" placeholder="SKU" required class="border rounded px-3 py-2 text-sm">
+  <input name="name" placeholder="{{ t('name') }}" required class="border rounded px-3 py-2 text-sm sm:col-span-2">
+  <input name="sku" placeholder="{{ t('sku') }}" required class="border rounded px-3 py-2 text-sm">
 
   {% if current_user.role == "superadmin" %}
   <select name="country" class="border rounded px-3 py-2 text-sm sm:col-span-3">
-    <option value="">Shared (all countries)</option>
+    <option value="">{{ t('shared_all_countries') }}</option>
     <option value="CM">CM</option>
     <option value="NG">NG</option>
     <option value="SD">SD</option>
@@ -18,54 +18,54 @@
   {% endif %}
 
   <select name="category" class="border rounded px-3 py-2 text-sm">
-    <option value="">Category…</option>
+    <option value="">{{ t('category') }}…</option>
     {% for c in category_choices %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
   </select>
-  <input name="subcategory" placeholder="Subcategory" class="border rounded px-3 py-2 text-sm">
-  <input name="model" placeholder="Model" class="border rounded px-3 py-2 text-sm">
+  <input name="subcategory" placeholder="{{ t('subcategory') }}" class="border rounded px-3 py-2 text-sm">
+  <input name="model" placeholder="{{ t('model') }}" class="border rounded px-3 py-2 text-sm">
 
-  <input name="wattage" placeholder="Wattage" class="border rounded px-3 py-2 text-sm">
-  <input name="power_kw" placeholder="Power (kW)" class="border rounded px-3 py-2 text-sm">
-  <input name="capacity_ah" placeholder="Capacity (Ah)" class="border rounded px-3 py-2 text-sm">
+  <input name="wattage" placeholder="{{ t('wattage') }}" class="border rounded px-3 py-2 text-sm">
+  <input name="power_kw" placeholder="{{ t('power_kw') }}" class="border rounded px-3 py-2 text-sm">
+  <input name="capacity_ah" placeholder="{{ t('capacity_ah') }}" class="border rounded px-3 py-2 text-sm">
 
-  <input name="capacity_kwh" placeholder="Capacity (kWh)" class="border rounded px-3 py-2 text-sm">
-  <input name="voltage" placeholder="Voltage" class="border rounded px-3 py-2 text-sm">
-  <input name="dimensions" placeholder="Dimensions" class="border rounded px-3 py-2 text-sm">
+  <input name="capacity_kwh" placeholder="{{ t('capacity_kwh') }}" class="border rounded px-3 py-2 text-sm">
+  <input name="voltage" placeholder="{{ t('voltage') }}" class="border rounded px-3 py-2 text-sm">
+  <input name="dimensions" placeholder="{{ t('dimensions') }}" class="border rounded px-3 py-2 text-sm">
 
   <label for="price_local" class="text-sm text-gray-700 flex flex-col gap-1">
-    Local price{% if current_user.country %} ({{ currency_for_country(current_user.country) }}){% endif %}
+    {{ t('local_price') }}{% if current_user.country %} ({{ currency_for_country(current_user.country) }}){% endif %}
     <input id="price_local" name="price_local" type="number" min="0" step="0.01" class="border rounded px-3 py-2 text-sm">
   </label>
-  <input name="price_cny" type="number" min="0" step="0.01" placeholder="CNY (internal, optional)" class="border rounded px-3 py-2 text-sm">
-  <input name="weight_kg" type="number" step="0.01" placeholder="Weight (kg)" class="border rounded px-3 py-2 text-sm">
+  <input name="price_cny" type="number" min="0" step="0.01" placeholder="{{ t('cny_internal_optional') }}" class="border rounded px-3 py-2 text-sm">
+  <input name="weight_kg" type="number" step="0.01" placeholder="{{ t('weight_kg') }}" class="border rounded px-3 py-2 text-sm">
 
-  <input name="stock" type="number" placeholder="Stock" value="0" class="border rounded px-3 py-2 text-sm">
+  <input name="stock" type="number" placeholder="{{ t('stock') }}" value="0" class="border rounded px-3 py-2 text-sm">
   <label class="flex items-center gap-2 text-sm text-gray-600">
-    <input type="checkbox" name="featured" value="true"> Featured
+    <input type="checkbox" name="featured" value="true"> {{ t('featured') }}
   </label>
   <div></div>
 
-  <textarea name="features" placeholder="Features (one per line)" rows="2" class="border rounded px-3 py-2 text-sm sm:col-span-3"></textarea>
-  <textarea name="use_cases" placeholder="Use cases" rows="2" class="border rounded px-3 py-2 text-sm sm:col-span-3"></textarea>
+  <textarea name="features" placeholder="{{ t('features_lines') }}" rows="2" class="border rounded px-3 py-2 text-sm sm:col-span-3"></textarea>
+  <textarea name="use_cases" placeholder="{{ t('use_cases') }}" rows="2" class="border rounded px-3 py-2 text-sm sm:col-span-3"></textarea>
 
-  <label class="text-xs text-gray-500 sm:col-span-3 -mb-2">Datasheet (PDF)</label>
+  <label class="text-xs text-gray-500 sm:col-span-3 -mb-2">{{ t('datasheet_pdf') }}</label>
   <input name="datasheet" type="file" accept="application/pdf" class="border rounded px-3 py-2 text-sm sm:col-span-3">
 
-  <label class="text-xs text-gray-500 sm:col-span-3 -mb-2">Primary image</label>
+  <label class="text-xs text-gray-500 sm:col-span-3 -mb-2">{{ t('primary_image') }}</label>
   <input name="primary_image" type="file" accept="image/*" class="border rounded px-3 py-2 text-sm sm:col-span-3">
 
-  <label class="text-xs text-gray-500 sm:col-span-3 -mb-2">Additional gallery images</label>
+  <label class="text-xs text-gray-500 sm:col-span-3 -mb-2">{{ t('additional_gallery_images') }}</label>
   <input name="gallery_images" type="file" accept="image/*" multiple class="border rounded px-3 py-2 text-sm sm:col-span-3">
 
-  <button type="submit" class="bg-blue-800 text-white min-h-10 px-3 rounded text-sm sm:col-span-3">Add Product</button>
+  <button type="submit" class="bg-blue-800 text-white min-h-10 px-3 rounded text-sm sm:col-span-3">{{ t('add_product') }}</button>
 </form>
 
-<nav aria-label="Product status" class="flex gap-2 mb-4 text-sm flex-wrap">
+<nav aria-label="{{ t('product_status') }}" class="flex gap-2 mb-4 text-sm flex-wrap">
   {% for state in product_statuses %}
   <a href="/admin/products?{% if selected_category %}category={{ selected_category|urlencode }}&amp;{% endif %}status={{ state }}"
      class="min-h-10 inline-flex items-center px-4 rounded-full {{ 'bg-blue-800 text-white' if selected_status == state else 'bg-white border' }}"
      {% if selected_status == state %}aria-current="page"{% endif %}>
-    {{ state|capitalize }} ({{ status_counts[state] }})
+    {{ t(state) }} ({{ status_counts[state] }})
   </a>
   {% endfor %}
 </nav>
@@ -73,7 +73,7 @@
 <div class="flex gap-2 mb-4 text-sm flex-wrap">
   <a href="/admin/products{% if selected_status != 'active' %}?status={{ selected_status }}{% endif %}"
      class="min-h-10 inline-flex items-center px-3 rounded-full {{ 'bg-blue-800 text-white' if not selected_category else 'bg-white border' }}">
-     All ({{ total_count }})
+     {{ t('all_count', count=total_count) }}
   </a>
   {% for c in categories %}
   <a href="/admin/products?category={{ c|urlencode }}{% if selected_status != 'active' %}&amp;status={{ selected_status }}{% endif %}"
@@ -88,15 +88,15 @@
   <thead class="bg-gray-50 text-left">
     <tr>
       <th class="p-3"></th>
-      <th class="p-3">SKU</th>
-      <th class="p-3">Name</th>
-      <th class="p-3">Country</th>
-      <th class="p-3">Status</th>
-      <th class="p-3">Category</th>
-      <th class="p-3">Specs</th>
-      <th class="p-3">Price</th>
-      <th class="p-3">Stock</th>
-      <th class="p-3">Datasheet</th>
+      <th class="p-3">{{ t('sku') }}</th>
+      <th class="p-3">{{ t('name') }}</th>
+      <th class="p-3">{{ t('country') }}</th>
+      <th class="p-3">{{ t('status') }}</th>
+      <th class="p-3">{{ t('category') }}</th>
+      <th class="p-3">{{ t('specs') }}</th>
+      <th class="p-3">{{ t('price') }}</th>
+      <th class="p-3">{{ t('stock') }}</th>
+      <th class="p-3">{{ t('datasheet') }}</th>
       <th class="p-3"></th>
     </tr>
   </thead>
@@ -109,17 +109,17 @@
         <img src="{{ img }}" class="w-12 h-12 object-cover rounded border" loading="lazy">
         {% endif %}
         {% if p.images %}
-        <div class="text-[10px] text-gray-400 mt-0.5">+{{ p.images|length }} photo{{ 's' if p.images|length != 1 else '' }}</div>
+        <div class="text-[10px] text-gray-400 mt-0.5">+{{ t('photo_count' if p.images|length == 1 else 'photos_count', count=p.images|length) }}</div>
         {% endif %}
       </td>
       <td class="p-3 font-mono text-xs">{{ p.sku }}</td>
       <td class="p-3">
         {{ p.name }}
-        {% if p.featured %}<span class="ml-1 text-xs bg-amber-400 text-slate-900 px-1.5 py-0.5 rounded font-bold">★ Featured</span>{% endif %}
+        {% if p.featured %}<span class="ml-1 text-xs bg-amber-400 text-slate-900 px-1.5 py-0.5 rounded font-bold">★ {{ t('featured') }}</span>{% endif %}
       </td>
-      <td class="p-3 text-xs">{{ p.country or 'Shared' }}</td>
+      <td class="p-3 text-xs">{{ p.country or t('shared') }}</td>
       <td class="p-3 text-xs">
-        <span class="inline-flex rounded-full px-2 py-1 font-medium {{ 'bg-green-100 text-green-800' if p.status == 'active' else 'bg-amber-100 text-amber-800' if p.status == 'inactive' else 'bg-slate-200 text-slate-700' }}">{{ p.status|capitalize }}</span>
+        <span class="inline-flex rounded-full px-2 py-1 font-medium {{ 'bg-green-100 text-green-800' if p.status == 'active' else 'bg-amber-100 text-amber-800' if p.status == 'inactive' else 'bg-slate-200 text-slate-700' }}">{{ t(p.status) }}</span>
       </td>
       <td class="p-3 text-xs">
         {{ p.category or '-' }}{% if p.subcategory %}<br><span class="text-gray-400">{{ p.subcategory }}</span>{% endif %}
@@ -132,13 +132,13 @@
       </td>
       <td class="p-3">
         {% if p.price_local is not none %}
-          {{ "%.2f"|format(p.price_local) }} {{ currency_for_country(p.country) or 'local' }}
+          {{ "%.2f"|format(p.price_local) }} {{ currency_for_country(p.country) or t('local') }}
         {% elif p.price_xaf is not none and p.country == 'CM' %}
           {{ "%.2f"|format(p.price_xaf) }} XAF
         {% elif p.price_cny is not none %}
           ¥{{ "%.2f"|format(p.price_cny) }}
         {% else %}
-          <span class="text-gray-400 italic">On request</span>
+          <span class="text-gray-400 italic">{{ t('on_request') }}</span>
         {% endif %}
       </td>
       <td class="p-3">{{ p.stock }}</td>
@@ -151,24 +151,24 @@
       <td class="p-3">
         {% if current_user.role == 'superadmin' or p.country == current_user.country %}
         <div class="flex flex-wrap items-center gap-2">
-          <a href="/admin/products/{{ p.id }}/edit" class="min-h-10 inline-flex items-center px-2 text-blue-700 hover:underline text-xs">Edit</a>
+          <a href="/admin/products/{{ p.id }}/edit" class="min-h-10 inline-flex items-center px-2 text-blue-700 hover:underline text-xs">{{ t('edit') }}</a>
           <form action="/admin/products/{{ p.id }}/status" method="post">
             {% if p.status == 'active' %}
-            <button type="submit" name="status" value="inactive" class="min-h-10 px-3 rounded border border-amber-600 text-amber-800 text-xs">Unpublish</button>
+            <button type="submit" name="status" value="inactive" class="min-h-10 px-3 rounded border border-amber-600 text-amber-800 text-xs">{{ t('unpublish') }}</button>
             {% elif p.status == 'inactive' %}
-            <button type="submit" name="status" value="archived" class="min-h-10 px-3 rounded border border-slate-500 text-slate-700 text-xs">Archive</button>
+            <button type="submit" name="status" value="archived" class="min-h-10 px-3 rounded border border-slate-500 text-slate-700 text-xs">{{ t('archive') }}</button>
             {% else %}
-            <button type="submit" name="status" value="active" class="min-h-10 px-3 rounded border border-green-700 text-green-800 text-xs">Restore</button>
+            <button type="submit" name="status" value="active" class="min-h-10 px-3 rounded border border-green-700 text-green-800 text-xs">{{ t('restore') }}</button>
             {% endif %}
           </form>
           {% if current_user.role == 'superadmin' %}
           <form action="/admin/products/{{ p.id }}/delete" method="post" data-delete-product="{{ p.name }} ({{ p.sku }})">
-            <button type="submit" class="min-h-10 px-3 rounded border border-red-300 text-red-700 text-xs">Delete permanently</button>
+            <button type="submit" class="min-h-10 px-3 rounded border border-red-300 text-red-700 text-xs">{{ t('delete_permanently') }}</button>
           </form>
           {% endif %}
         </div>
         {% else %}
-        <span class="text-gray-400 text-xs">read-only</span>
+        <span class="text-gray-400 text-xs">{{ t('read_only') }}</span>
         {% endif %}
       </td>
     </tr>
@@ -179,7 +179,8 @@
 <script>
   document.querySelectorAll('form[data-delete-product]').forEach((form) => {
     form.addEventListener('submit', (event) => {
-      if (!window.confirm('Delete ' + form.dataset.deleteProduct + ' permanently? This cannot be undone.')) {
+      const confirmation = {{ t('delete_product_confirmation', product='{product}')|tojson }};
+      if (!window.confirm(confirmation.replace('{product}', () => form.dataset.deleteProduct))) {
         event.preventDefault();
       }
     });

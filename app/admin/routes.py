@@ -58,7 +58,7 @@ async def login(
         return templates.TemplateResponse(
             request=request,
             name="admin/login.html",
-            context={"error": "Invalid email or password"},
+            context={"error": "invalid_credentials"},
             status_code=401,
         )
     token = create_access_token({"sub": str(user.id), "role": user.role})

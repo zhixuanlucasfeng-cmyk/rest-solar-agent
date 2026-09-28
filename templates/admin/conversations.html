@@ -1,12 +1,12 @@
 {% extends "admin/base.html" %}
-{% block title %}Conversations{% endblock %}
+{% block title %}{{ t('conversations') }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-6">Conversations</h1>
+<h1 class="text-2xl font-bold mb-6">{{ t('conversations') }}</h1>
 <table class="w-full bg-white rounded shadow text-sm">
   <thead class="bg-gray-50 text-left">
     <tr>
-      <th class="p-3">ID</th><th class="p-3">Session</th>
-      <th class="p-3">Language</th><th class="p-3">Created</th><th class="p-3"></th>
+      <th class="p-3">{{ t('id') }}</th><th class="p-3">{{ t('session') }}</th>
+      <th class="p-3">{{ t('language') }}</th><th class="p-3">{{ t('created') }}</th><th class="p-3"></th>
     </tr>
   </thead>
   <tbody>
@@ -16,7 +16,7 @@
       <td class="p-3 font-mono text-xs">{{ c.session_id }}</td>
       <td class="p-3 uppercase">{{ c.language }}</td>
       <td class="p-3">{{ c.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
-      <td class="p-3"><a href="/admin/conversations/{{ c.id }}" class="text-blue-600 hover:underline">View</a></td>
+      <td class="p-3"><a href="/admin/conversations/{{ c.id }}" class="text-blue-600 hover:underline">{{ t('view') }}</a></td>
     </tr>
     {% endfor %}
   </tbody>

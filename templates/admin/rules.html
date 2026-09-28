@@ -1,17 +1,17 @@
 {% extends "admin/base.html" %}
-{% block title %}Rules{% endblock %}
+{% block title %}{{ t('rules') }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">Rules</h1>
+<h1 class="text-2xl font-bold mb-4">{{ t('rules') }}</h1>
 <form action="/admin/rules" method="post" class="bg-white rounded shadow p-4 mb-6 grid grid-cols-2 gap-3 max-w-2xl">
-  <input name="name" placeholder="Rule name" required class="border rounded px-3 py-2 text-sm col-span-2">
-  <input name="trigger" placeholder="Trigger keywords (comma-separated)" class="border rounded px-3 py-2 text-sm">
-  <input name="priority" type="number" placeholder="Priority (10=high)" value="10" class="border rounded px-3 py-2 text-sm">
-  <textarea name="body" placeholder="Rule body / response" required class="border rounded px-3 py-2 text-sm col-span-2 h-24"></textarea>
-  <button type="submit" class="bg-blue-800 text-white py-2 rounded text-sm col-span-2">Add Rule</button>
+  <input name="name" placeholder="{{ t('rule_name') }}" required class="border rounded px-3 py-2 text-sm col-span-2">
+  <input name="trigger" placeholder="{{ t('trigger_keywords') }}" class="border rounded px-3 py-2 text-sm">
+  <input name="priority" type="number" placeholder="{{ t('priority_hint') }}" value="10" class="border rounded px-3 py-2 text-sm">
+  <textarea name="body" placeholder="{{ t('rule_body') }}" required class="border rounded px-3 py-2 text-sm col-span-2 h-24"></textarea>
+  <button type="submit" class="bg-blue-800 text-white py-2 rounded text-sm col-span-2">{{ t('add_rule') }}</button>
 </form>
 <table class="w-full bg-white rounded shadow text-sm">
   <thead class="bg-gray-50 text-left">
-    <tr><th class="p-3">Priority</th><th class="p-3">Name</th><th class="p-3">Trigger</th><th class="p-3"></th></tr>
+    <tr><th class="p-3">{{ t('priority') }}</th><th class="p-3">{{ t('name') }}</th><th class="p-3">{{ t('trigger') }}</th><th class="p-3"></th></tr>
   </thead>
   <tbody>
     {% for r in rules %}
@@ -21,7 +21,7 @@
       <td class="p-3 text-gray-500">{{ r.trigger }}</td>
       <td class="p-3">
         <form action="/admin/rules/{{ r.id }}/delete" method="post" class="inline">
-          <button type="submit" class="text-red-500 hover:underline text-xs">Delete</button>
+          <button type="submit" class="text-red-500 hover:underline text-xs">{{ t('delete') }}</button>
         </form>
       </td>
     </tr>

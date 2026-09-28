@@ -1,30 +1,40 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ lang }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}RestarSolar Admin{% endblock %}</title>
+  <title>{% block title %}{{ t('brand_admin') }}{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
 </head>
 <body class="bg-gray-100 min-h-screen">
   <nav class="bg-blue-800 text-white px-6 py-3 flex justify-between items-center">
-    <a href="/admin/dashboard" class="font-bold text-lg flex items-center gap-2"><img src="/static/logo-white.svg" alt="" style="height:22px;width:auto">RestarSolar Admin</a>
-    <div class="flex gap-4 text-sm">
-      <a href="/admin/inbox" class="hover:underline">Inbox</a>
-      <a href="/admin/conversations" class="hover:underline">Conversations</a>
+    <a href="/admin/dashboard" class="font-bold text-lg flex items-center gap-2"><img src="/static/logo-white.svg" alt="" style="height:22px;width:auto">{{ t('brand_admin') }}</a>
+    <div class="flex gap-4 text-sm items-center flex-wrap">
+      <form action="/admin/language" method="post" class="inline-flex items-center gap-1">
+        <input type="hidden" name="next" value="{{ request.url.path }}">
+        <label for="admin-language">{{ t('language') }}</label>
+        <select id="admin-language" name="language" class="rounded px-1 py-1 text-gray-900" onchange="this.form.requestSubmit()">
+          {% for code in supported_languages %}
+          <option value="{{ code }}" {% if lang == code %}selected{% endif %}>{{ {'en': 'English', 'zh': '中文', 'fr': 'Français'}[code] }}</option>
+          {% endfor %}
+        </select>
+        <noscript><button type="submit">{{ t('save') }}</button></noscript>
+      </form>
+      <a href="/admin/inbox" class="hover:underline">{{ t('inbox') }}</a>
+      <a href="/admin/conversations" class="hover:underline">{{ t('conversations') }}</a>
       {% if current_user.role != "agent" %}
-      <a href="/admin/products" class="hover:underline">Products</a>
-      <a href="/admin/orders" class="hover:underline">Orders</a>
-      <a href="/admin/tickets" class="hover:underline">Tickets</a>
+      <a href="/admin/products" class="hover:underline">{{ t('products') }}</a>
+      <a href="/admin/orders" class="hover:underline">{{ t('orders') }}</a>
+      <a href="/admin/tickets" class="hover:underline">{{ t('tickets') }}</a>
       {% endif %}
       {% if current_user.role == "superadmin" %}
-      <a href="/admin/rules" class="hover:underline">Rules</a>
-      <a href="/admin/users" class="hover:underline">Users</a>
-      <a href="/admin/reports" class="hover:underline">Reports</a>
+      <a href="/admin/rules" class="hover:underline">{{ t('rules') }}</a>
+      <a href="/admin/users" class="hover:underline">{{ t('users') }}</a>
+      <a href="/admin/reports" class="hover:underline">{{ t('reports') }}</a>
       {% endif %}
       <form action="/admin/logout" method="post" class="inline">
-        <button type="submit" class="hover:underline">Logout</button>
+        <button type="submit" class="hover:underline">{{ t('logout') }}</button>
       </form>
     </div>
   </nav>

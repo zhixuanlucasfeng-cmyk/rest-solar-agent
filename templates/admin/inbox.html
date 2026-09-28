@@ -1,37 +1,38 @@
 {% extends "admin/base.html" %}
-{% block title %}Inbox{% endblock %}
+{% block title %}{{ t('inbox') }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">Live Inbox</h1>
+<h1 class="text-2xl font-bold mb-4">{{ t('live_inbox') }}</h1>
 
 <div class="flex gap-4" style="height:70vh">
   <!-- Queue -->
   <div class="w-72 bg-white rounded shadow overflow-y-auto shrink-0">
-    <div class="px-3 py-2 text-xs font-semibold text-gray-500 border-b">WAITING / LIVE</div>
+    <div class="px-3 py-2 text-xs font-semibold text-gray-500 border-b">{{ t('waiting_live') }}</div>
     <ul id="queue"></ul>
-    <p id="queue-empty" class="p-3 text-sm text-gray-400">No customers waiting.</p>
+    <p id="queue-empty" class="p-3 text-sm text-gray-400">{{ t('no_customers_waiting') }}</p>
   </div>
 
   <!-- Chat -->
   <div class="flex-1 bg-white rounded shadow flex flex-col">
     <div id="chat-head" class="px-4 py-2 border-b flex justify-between items-center">
-      <span id="chat-title" class="font-semibold text-sm text-gray-500">Select a conversation</span>
+      <span id="chat-title" class="font-semibold text-sm text-gray-500">{{ t('select_conversation') }}</span>
       <span class="flex gap-2">
-        <button id="btn-takeover" onclick="takeover()" class="hidden bg-orange-500 text-white px-3 py-1 rounded text-sm">Take over</button>
-        <button id="btn-release" onclick="release()" class="hidden bg-gray-500 text-white px-3 py-1 rounded text-sm">Release to AI</button>
+        <button id="btn-takeover" onclick="takeover()" class="hidden bg-orange-500 text-white px-3 py-1 rounded text-sm">{{ t('take_over') }}</button>
+        <button id="btn-release" onclick="release()" class="hidden bg-gray-500 text-white px-3 py-1 rounded text-sm">{{ t('release_to_ai') }}</button>
       </span>
     </div>
     <div id="thread" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
     <div id="reply-bar" class="hidden p-3 border-t flex gap-2">
-      <input id="reply-input" type="text" placeholder="Type your reply…"
+      <input id="reply-input" type="text" placeholder="{{ t('type_your_reply') }}"
         class="flex-1 border rounded px-3 py-2 text-sm"
         onkeydown="if(event.key==='Enter')sendReply()">
-      <button onclick="sendReply()" class="bg-blue-700 text-white px-4 py-2 rounded text-sm">Send</button>
+      <button onclick="sendReply()" class="bg-blue-700 text-white px-4 py-2 rounded text-sm">{{ t('send') }}</button>
     </div>
   </div>
 </div>
 
 <script>
 const MY_ID = {{ current_user.id }};
+const queueLabels = {{ {'waiting': t('waiting'), 'you': t('you'), 'live': t('live')}|tojson }};
 
 function ding() {
   try {
@@ -96,7 +97,7 @@ function renderQueue() {
       <div class="flex justify-between">
         <span class="font-medium">#${it.conversation_id} <span class="text-xs text-gray-400">${it.country || ''}</span></span>
         <span class="text-xs ${it.mode === 'waiting' ? 'text-orange-600' : mine ? 'text-green-600' : 'text-gray-400'}">
-          ${it.mode === 'waiting' ? 'waiting' : mine ? 'you' : 'live'}</span>
+          ${it.mode === 'waiting' ? queueLabels.waiting : mine ? queueLabels.you : queueLabels.live}</span>
       </div>
       <div class="text-xs text-gray-500 truncate">${it.preview || ''}</div>`;
     li.onclick = () => openConversation(it.conversation_id);
@@ -106,7 +107,7 @@ function renderQueue() {
 
 async function openConversation(convId) {
   openConv = convId;
-  document.getElementById('chat-title').textContent = `Conversation #${convId}`;
+  document.getElementById('chat-title').textContent = {{ t('conversation_number', id='{id}')|tojson }}.replace('{id}', () => convId);
   const thread = document.getElementById('thread');
   thread.innerHTML = '';
   const res = await fetch(`/admin/conversations/${convId}/messages`);
