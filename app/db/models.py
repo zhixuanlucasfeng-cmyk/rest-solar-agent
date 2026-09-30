@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Integer, String, Text, Boolean, DateTime, ForeignKey, Float, LargeBinary
+from sqlalchemy import Integer, String, Text, Boolean, DateTime, ForeignKey, Float, LargeBinary, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -96,6 +96,25 @@ class ProductImage(Base):
     asset_id: Mapped[int | None] = mapped_column(ForeignKey("media_assets.id"), nullable=True)
 
     product: Mapped["Product"] = relationship("Product", back_populates="images")
+
+
+class ProductLocalization(Base):
+    """Links a country-owned product copy to its shared catalogue source."""
+
+    __tablename__ = "product_localizations"
+    __table_args__ = (
+        UniqueConstraint("source_product_id", "country", name="uq_product_localization_source_country"),
+        UniqueConstraint("product_id", name="uq_product_localization_product"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source_product_id: Mapped[int] = mapped_column(
+        ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    product_id: Mapped[int] = mapped_column(
+        ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True,
+    )
+    country: Mapped[str] = mapped_column(String(2), nullable=False, index=True)
 
 
 class MediaAsset(Base):

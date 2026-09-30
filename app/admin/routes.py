@@ -13,6 +13,7 @@ from app.admin.deps import get_current_admin, require_superadmin, require_admin,
 from app.countries import normalize_country, is_valid_country, COUNTRIES
 from app.media import media_url, save_upload
 from app.product_catalog import PRODUCT_STATUSES, currency_for_country, validate_product_values
+from app.product_localization import country_product_scope, localize_shared_product
 from app.admin.i18n import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, admin_context
 
 router = APIRouter(prefix="/admin")
@@ -236,7 +237,7 @@ async def _product_list_context(db, current_user, category=None, status="active"
         raise HTTPException(status_code=400, detail="Invalid product status")
     stmt = select(Product).options(selectinload(Product.images)).order_by(Product.category, Product.sku)
     if current_user.country is not None:
-        stmt = stmt.where(or_(Product.country.is_(None), Product.country == current_user.country))
+        stmt = stmt.where(country_product_scope(current_user.country))
     if category:
         stmt = stmt.where(Product.category == category)
     stmt = stmt.where(Product.status == status)
@@ -247,7 +248,7 @@ async def _product_list_context(db, current_user, category=None, status="active"
     cats_stmt = select(Product.category).where(Product.status == status).distinct()
     status_count_stmt = select(Product.status, func.count()).group_by(Product.status)
     if current_user.country is not None:
-        scope = or_(Product.country.is_(None), Product.country == current_user.country)
+        scope = country_product_scope(current_user.country)
         count_stmt = count_stmt.where(scope)
         cats_stmt = cats_stmt.where(scope)
         status_count_stmt = status_count_stmt.where(scope)
@@ -368,6 +369,44 @@ async def create_product(
 
     await db.commit()
     return RedirectResponse(url="/admin/products", status_code=302)
+
+
+@router.post("/products/{product_id}/localize")
+async def localize_product(
+    product_id: int, db: AsyncSession = Depends(get_db),
+    current_user: AdminUser = Depends(require_admin),
+):
+    product = await db.scalar(select(Product).where(Product.id == product_id))
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if current_user.country is None:
+        return RedirectResponse(url=f"/admin/products/{product.id}/edit", status_code=303)
+    if product.country is not None:
+        assert_visible(current_user, product)
+        return RedirectResponse(url=f"/admin/products/{product.id}/edit", status_code=303)
+
+    country_copy = await localize_shared_product(db, product, current_user.country)
+    await db.commit()
+    return RedirectResponse(url=f"/admin/products/{country_copy.id}/edit", status_code=303)
+
+
+@router.post("/products/{product_id}/remove")
+async def remove_product_from_market(
+    product_id: int, db: AsyncSession = Depends(get_db),
+    current_user: AdminUser = Depends(require_admin),
+):
+    product = await db.scalar(select(Product).where(Product.id == product_id))
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if current_user.country is not None and product.country is None:
+        product = await localize_shared_product(
+            db, product, current_user.country, status="archived",
+        )
+    else:
+        _assert_product_writable(current_user, product)
+        product.status = "archived"
+    await db.commit()
+    return RedirectResponse(url="/admin/products?status=archived", status_code=302)
 
 
 @router.get("/products/{product_id}/edit", response_class=HTMLResponse)

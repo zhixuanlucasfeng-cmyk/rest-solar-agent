@@ -156,7 +156,20 @@
           <form action="/admin/products/{{ p.id }}/delete" method="post" data-delete-product="{{ p.name }} ({{ p.sku }})">
             <button type="submit" class="min-h-10 px-3 rounded border border-red-300 text-red-700 text-xs">{{ t('delete_permanently') }}</button>
           </form>
+          {% elif p.status != 'archived' %}
+          <form action="/admin/products/{{ p.id }}/remove" method="post" data-remove-product="{{ p.name }} ({{ p.sku }})">
+            <button type="submit" class="min-h-10 px-3 rounded border border-red-300 text-red-700 text-xs">{{ t('remove_from_market') }}</button>
+          </form>
           {% endif %}
+        </div>
+        {% elif current_user.country and p.country is none %}
+        <div class="flex flex-wrap items-center gap-2">
+          <form action="/admin/products/{{ p.id }}/localize" method="post">
+            <button type="submit" class="min-h-10 px-2 text-blue-700 hover:underline text-xs">{{ t('edit') }}</button>
+          </form>
+          <form action="/admin/products/{{ p.id }}/remove" method="post" data-remove-product="{{ p.name }} ({{ p.sku }})">
+            <button type="submit" class="min-h-10 px-3 rounded border border-red-300 text-red-700 text-xs">{{ t('remove_from_market') }}</button>
+          </form>
         </div>
         {% else %}
         <span class="text-gray-400 text-xs">{{ t('read_only') }}</span>
@@ -173,6 +186,14 @@
     form.addEventListener('submit', (event) => {
       const confirmation = {{ t('delete_product_confirmation', product='{product}')|tojson }};
       if (!window.confirm(confirmation.replace('{product}', () => form.dataset.deleteProduct))) {
+        event.preventDefault();
+      }
+    });
+  });
+  document.querySelectorAll('form[data-remove-product]').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      const confirmation = {{ t('remove_product_confirmation', product='{product}')|tojson }};
+      if (!window.confirm(confirmation.replace('{product}', () => form.dataset.removeProduct))) {
         event.preventDefault();
       }
     });

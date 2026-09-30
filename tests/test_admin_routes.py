@@ -1,5 +1,6 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.main import app
 from app.db.models import Base, AdminUser, Conversation, Order, Ticket, Product, ProductImage
@@ -373,7 +374,8 @@ async def test_country_admin_product_list_shows_shared_and_own(product_env):
     async with client(ng_tok) as c:
         r = await c.get("/admin/products")
     assert b"SHARE-1" in r.content and b"NGP-1" in r.content
-    assert b"read-only" in r.content  # shared row not editable by NG
+    assert f'/admin/products/{ids["SHARE-1"]}/localize' in r.text
+    assert f'/admin/products/{ids["SHARE-1"]}/remove' in r.text
 
 
 @pytest.mark.asyncio
@@ -762,8 +764,8 @@ async def test_country_product_page_shows_local_price_status_tabs_and_safe_actio
         assert all(f'status={state}' in active.text for state in ("active", "inactive", "archived"))
         assert f'/admin/products/{ids["NGP-1"]}/status' in active.text
         assert re.search(r'name="status" value="inactive"[^>]*>\s*Unpublish', active.text)
-        assert f'/admin/products/{ids["SHARE-1"]}/status' not in active.text
-        assert f'/admin/products/{ids["SHARE-1"]}/edit' not in active.text
+        assert f'/admin/products/{ids["SHARE-1"]}/localize' in active.text
+        assert f'/admin/products/{ids["SHARE-1"]}/remove' in active.text
         assert '/delete"' not in active.text
 
         assert (await c.post(f'/admin/products/{ids["NGP-1"]}/status', data={"status": "inactive"})).status_code == 302
@@ -777,6 +779,56 @@ async def test_country_product_page_shows_local_price_status_tabs_and_safe_actio
         assert re.search(r'name="status" value="active"[^>]*>\s*Restore', archived.text)
         assert 'Archived' in archived.text
         assert '/delete"' not in archived.text
+
+
+@pytest.mark.asyncio
+async def test_country_admin_edits_shared_product_through_country_copy(product_lifecycle_env):
+    client, _, ng_token, Session = product_lifecycle_env
+    shared = await _product_by_sku(Session, "SHARED-LIFE")
+
+    async with client(ng_token) as c:
+        localized = await c.post(
+            f"/admin/products/{shared.id}/localize", follow_redirects=False,
+        )
+
+    assert localized.status_code == 303
+    assert localized.headers["location"].endswith("/edit")
+    localized_id = int(localized.headers["location"].split("/")[-2])
+
+    async with Session() as session:
+        source = await session.get(Product, shared.id)
+        country_copy = await session.get(Product, localized_id)
+    assert (source.country, source.name, source.status) == (None, "Shared", "active")
+    assert (country_copy.country, country_copy.name, country_copy.status) == (
+        "NG", "Shared", "active",
+    )
+    assert country_copy.sku != source.sku
+
+
+@pytest.mark.asyncio
+async def test_country_admin_removes_shared_product_only_from_own_market(product_lifecycle_env):
+    client, _, ng_token, Session = product_lifecycle_env
+    shared = await _product_by_sku(Session, "SHARED-LIFE")
+
+    async with client(ng_token) as c:
+        removed = await c.post(
+            f"/admin/products/{shared.id}/remove", follow_redirects=False,
+        )
+        ng_feed = await c.get("/api/products?country=NG")
+        cm_feed = await c.get("/api/products?country=CM")
+
+    assert removed.status_code == 302
+    assert removed.headers["location"] == "/admin/products?status=archived"
+    assert "SHARED-LIFE" not in {item["sku"] for item in ng_feed.json()}
+    assert "SHARED-LIFE" in {item["sku"] for item in cm_feed.json()}
+
+    async with Session() as session:
+        source = await session.get(Product, shared.id)
+        country_copy = await session.scalar(
+            select(Product).where(Product.country == "NG", Product.name == "Shared")
+        )
+    assert source.status == "active"
+    assert country_copy.status == "archived"
 
 
 @pytest.mark.asyncio

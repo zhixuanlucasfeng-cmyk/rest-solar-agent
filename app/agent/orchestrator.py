@@ -2,7 +2,7 @@ import json
 import re
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select
 
 from app.agent.language_detector import detect_language
 from app.countries import is_valid_country, normalize_country
@@ -10,6 +10,7 @@ from app.agent.rule_engine import get_matching_rules
 from app.llm.client import chat_complete, chat_complete_stream, PendingToolCall
 from app.tools import get_tools, get_tool_map
 from app.db.models import Conversation, Message, Product
+from app.product_localization import country_product_scope
 
 HISTORY_LIMIT = 10
 CATALOG_N_RESULTS = 5
@@ -84,7 +85,7 @@ async def _retrieve_catalog_context(
     own country is visible. A None/unknown country sees shared-only."""
     stmt = select(Product).where(Product.status == "active")
     if country:
-        stmt = stmt.where(or_(Product.country.is_(None), Product.country == country))
+        stmt = stmt.where(country_product_scope(country))
     else:
         stmt = stmt.where(Product.country.is_(None))
     result = await db.execute(stmt)

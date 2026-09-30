@@ -1,12 +1,13 @@
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.countries import is_valid_country, normalize_country
 from app.db.models import Conversation, Order, Product
+from app.product_localization import country_product_scope
 from app.db.session import get_db
 from app.tools.order import next_order_number
 
@@ -70,7 +71,7 @@ async def create_order(
                     .where(
                         Product.sku.in_(quantities),
                         Product.status == "active",
-                        or_(Product.country.is_(None), Product.country == country),
+                        country_product_scope(country),
                     )
                     .with_for_update()
                 )

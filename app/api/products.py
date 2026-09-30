@@ -2,7 +2,7 @@ import math
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.db.session import get_db
@@ -10,6 +10,7 @@ from app.db.models import Product
 from app.media import media_url
 from app.countries import is_valid_country, normalize_country
 from app.product_catalog import currency_for_country
+from app.product_localization import country_product_scope
 
 router = APIRouter()
 
@@ -45,7 +46,7 @@ async def list_products(request: Request, country: str | None = Query(None), db:
     )
 
     if country and is_valid_country(country):
-        stmt = stmt.where(or_(Product.country.is_(None), Product.country == normalize_country(country)))
+        stmt = stmt.where(country_product_scope(normalize_country(country)))
     else:
         stmt = stmt.where(Product.country.is_(None))
 
