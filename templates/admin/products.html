@@ -152,6 +152,11 @@
             <button type="submit" name="status" value="active" class="min-h-10 px-3 rounded border border-green-700 text-green-800 text-xs">{{ t('restore') }}</button>
             {% endif %}
           </form>
+          {% if p.country and p.id not in localized_product_ids %}
+          <form action="/admin/products/{{ p.id }}/share" method="post" data-share-product="{{ p.name }} ({{ p.sku }})">
+            <button type="submit" class="min-h-10 px-3 rounded border border-blue-700 text-blue-800 text-xs">{{ t('share_all_markets') }}</button>
+          </form>
+          {% endif %}
           {% if current_user.role == 'superadmin' %}
           <form action="/admin/products/{{ p.id }}/delete" method="post" data-delete-product="{{ p.name }} ({{ p.sku }})">
             <button type="submit" class="min-h-10 px-3 rounded border border-red-300 text-red-700 text-xs">{{ t('delete_permanently') }}</button>
@@ -194,6 +199,14 @@
     form.addEventListener('submit', (event) => {
       const confirmation = {{ t('remove_product_confirmation', product='{product}')|tojson }};
       if (!window.confirm(confirmation.replace('{product}', () => form.dataset.removeProduct))) {
+        event.preventDefault();
+      }
+    });
+  });
+  document.querySelectorAll('form[data-share-product]').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      const confirmation = {{ t('share_product_confirmation', product='{product}')|tojson }};
+      if (!window.confirm(confirmation.replace('{product}', () => form.dataset.shareProduct))) {
         event.preventDefault();
       }
     });

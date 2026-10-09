@@ -7,13 +7,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, or_
 from sqlalchemy.orm import selectinload
 from app.db.session import get_db
-from app.db.models import AdminUser, Conversation, Message, Rule, Product, ProductImage, Order, Ticket
+from app.db.models import (
+    AdminUser, Conversation, Message, Rule, Product, ProductImage,
+    ProductLocalization, Order, Ticket,
+)
 from app.admin.auth import verify_password, create_access_token, hash_password
 from app.admin.deps import get_current_admin, require_superadmin, require_admin, scope_clause, assert_visible
 from app.countries import normalize_country, is_valid_country, COUNTRIES
 from app.media import media_url, save_upload
 from app.product_catalog import PRODUCT_STATUSES, currency_for_country, validate_product_values
-from app.product_localization import country_product_scope, localize_shared_product
+from app.product_localization import (
+    country_product_scope, localize_shared_product, promote_country_product_to_shared,
+)
 from app.admin.i18n import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, admin_context
 
 router = APIRouter(prefix="/admin")
@@ -258,6 +263,9 @@ async def _product_list_context(db, current_user, category=None, status="active"
 
     cats_result = await db.execute(cats_stmt)
     categories = sorted(c for (c,) in cats_result.all() if c)
+    localized_product_ids = set((await db.scalars(
+        select(ProductLocalization.product_id)
+    )).all())
 
     return {
         "current_user": current_user, "products": products, "total_count": total_count,
@@ -265,6 +273,7 @@ async def _product_list_context(db, current_user, category=None, status="active"
         "category_choices": PRODUCT_CATEGORIES,
         "selected_status": status, "status_counts": status_counts,
         "product_statuses": PRODUCT_STATUSES,
+        "localized_product_ids": localized_product_ids,
     }
 
 
@@ -388,6 +397,30 @@ async def localize_product(
     country_copy = await localize_shared_product(db, product, current_user.country)
     await db.commit()
     return RedirectResponse(url=f"/admin/products/{country_copy.id}/edit", status_code=303)
+
+
+@router.post("/products/{product_id}/share")
+async def share_product_across_markets(
+    product_id: int, db: AsyncSession = Depends(get_db),
+    current_user: AdminUser = Depends(require_admin),
+):
+    product = await db.scalar(
+        select(Product).options(selectinload(Product.images)).where(Product.id == product_id)
+    )
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if product.country is None:
+        raise HTTPException(status_code=409, detail="Product is already shared")
+    if current_user.country is not None:
+        assert_visible(current_user, product)
+
+    _, country_copy = await promote_country_product_to_shared(
+        db, product, current_user.country,
+    )
+    await db.commit()
+    return RedirectResponse(
+        url=f"/admin/products/{country_copy.id}/edit", status_code=303,
+    )
 
 
 @router.post("/products/{product_id}/remove")

@@ -118,6 +118,8 @@ TRANSLATIONS = {
         "paid": "paid", "shipped": "shipped", "closed": "closed", "open": "open",
         "photo_count": "{count} photo", "delete_product_confirmation": "Delete {product} permanently? This cannot be undone.",
         "remove_product_confirmation": "Remove {product} from your market? Other countries will not be affected.",
+        "share_all_markets": "Share to all markets",
+        "share_product_confirmation": "Share {product} with all four markets? Your local price, stock and status will be kept separately.",
     },
     "zh": {
         "operations": "运营管理",
@@ -231,6 +233,8 @@ TRANSLATIONS = {
         "paid": "已付款", "shipped": "已发货", "closed": "已关闭", "open": "待处理",
         "photo_count": "{count} 张图片", "delete_product_confirmation": "永久删除 {product}？此操作无法撤销。",
         "remove_product_confirmation": "从本市场删除 {product}？其他国家不会受到影响。",
+        "share_all_markets": "共享到四国",
+        "share_product_confirmation": "将 {product} 共享到四个市场？本国价格、库存和上下架状态会单独保留。",
     },
     "fr": {
         "operations": "Opérations",
@@ -344,6 +348,8 @@ TRANSLATIONS = {
         "paid": "Payé", "shipped": "Expédié", "closed": "Fermé", "open": "Ouvert",
         "photo_count": "{count} photo", "delete_product_confirmation": "Supprimer définitivement {product} ? Cette action est irréversible.",
         "remove_product_confirmation": "Retirer {product} de votre marché ? Les autres pays ne seront pas affectés.",
+        "share_all_markets": "Partager sur tous les marchés",
+        "share_product_confirmation": "Partager {product} sur les quatre marchés ? Le prix, le stock et le statut locaux seront conservés séparément.",
     },
 }
 

@@ -88,3 +88,42 @@ async def localize_shared_product(
             asset_id=image.asset_id,
         ))
     return country_copy
+
+
+async def promote_country_product_to_shared(
+    db: AsyncSession, product: Product, country: str | None = None,
+) -> tuple[Product, Product]:
+    """Promote a country product to the shared catalogue and retain its local copy."""
+    if product.country is None:
+        raise HTTPException(status_code=409, detail="Product is already shared")
+
+    product_country = normalize_country(product.country)
+    if country is not None and product_country != normalize_country(country):
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    existing_link = await db.scalar(
+        select(ProductLocalization.id).where(ProductLocalization.product_id == product.id)
+    )
+    if existing_link is not None:
+        raise HTTPException(status_code=409, detail="Localized products cannot be shared again")
+
+    source = await db.scalar(
+        select(Product).options(selectinload(Product.images)).where(Product.id == product.id)
+    )
+    if source is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    local_price = source.price_local
+    local_stock = source.stock
+    local_status = source.status
+    source.country = None
+    source.price_local = None
+    source.stock = 0
+    await db.flush()
+
+    country_copy = await localize_shared_product(
+        db, source, product_country, status=local_status,
+    )
+    country_copy.price_local = local_price
+    country_copy.stock = local_stock
+    return source, country_copy

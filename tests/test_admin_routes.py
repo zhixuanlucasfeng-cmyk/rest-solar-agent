@@ -3,7 +3,10 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.main import app
-from app.db.models import Base, AdminUser, Conversation, Order, Ticket, Product, ProductImage
+from app.db.models import (
+    Base, AdminUser, Conversation, Order, Ticket, Product, ProductImage,
+    ProductLocalization, MediaAsset,
+)
 from app.admin.auth import hash_password, create_access_token
 
 
@@ -687,6 +690,82 @@ async def test_country_admin_product_status_lifecycle_and_list_filter(product_li
 
 
 @pytest.mark.asyncio
+async def test_country_admin_shares_own_product_and_preserves_local_market_data(product_lifecycle_env):
+    client, _, ng_token, Session = product_lifecycle_env
+    product = await _product_by_sku(Session, "NG-LIFE")
+    async with Session() as session:
+        stored = await session.get(Product, product.id)
+        primary = MediaAsset(
+            kind="image", content_type="image/jpeg", data=b"primary", filename="primary.jpg",
+        )
+        gallery = MediaAsset(
+            kind="image", content_type="image/jpeg", data=b"gallery", filename="gallery.jpg",
+        )
+        session.add_all([primary, gallery])
+        await session.flush()
+        stored.image_asset_id = primary.id
+        session.add(ProductImage(
+            product_id=stored.id, path="", asset_id=gallery.id, sort_order=0,
+        ))
+        await session.commit()
+
+    async with client(ng_token) as c:
+        response = await c.post(f"/admin/products/{product.id}/share", follow_redirects=False)
+        ng_feed = (await c.get("/api/products?country=NG")).json()
+        cm_feed = (await c.get("/api/products?country=CM")).json()
+
+    assert response.status_code == 303
+    local_id = int(response.headers["location"].split("/")[-2])
+    async with Session() as session:
+        source = await session.get(Product, product.id)
+        local = await session.get(Product, local_id)
+        link = await session.scalar(select(ProductLocalization).where(
+            ProductLocalization.source_product_id == source.id,
+            ProductLocalization.product_id == local.id,
+            ProductLocalization.country == "NG",
+        ))
+        local_images = (await session.execute(
+            select(ProductImage).where(ProductImage.product_id == local.id)
+        )).scalars().all()
+
+    assert (source.country, source.sku, source.price_local, source.stock) == (
+        None, "NG-LIFE", None, 0,
+    )
+    assert (local.country, local.sku, local.price_local, local.stock, local.status) == (
+        "NG", "NG-LIFE-NG", 100, 3, "active",
+    )
+    assert source.image_asset_id == local.image_asset_id
+    assert [image.asset_id for image in local_images] == [gallery.id]
+    assert link is not None
+
+    assert [(item["sku"], item["country"], item["price_local"], item["stock"])
+            for item in ng_feed if item["name"] == "Nigeria"] == [
+        ("NG-LIFE-NG", "NG", 100, 3),
+    ]
+    assert [(item["sku"], item["country"], item["price_local"], item["stock"])
+            for item in cm_feed if item["name"] == "Nigeria"] == [
+        ("NG-LIFE", None, None, 0),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_country_admin_cannot_share_another_market_or_reshare_local_copy(product_lifecycle_env):
+    client, _, ng_token, Session = product_lifecycle_env
+    own = await _product_by_sku(Session, "NG-LIFE")
+    other = await _product_by_sku(Session, "CM-LIFE")
+
+    async with client(ng_token) as c:
+        forbidden = await c.post(f"/admin/products/{other.id}/share", follow_redirects=False)
+        promoted = await c.post(f"/admin/products/{own.id}/share", follow_redirects=False)
+        local_id = int(promoted.headers["location"].split("/")[-2])
+        repeated = await c.post(f"/admin/products/{local_id}/share", follow_redirects=False)
+
+    assert forbidden.status_code == 404
+    assert promoted.status_code == 303
+    assert repeated.status_code == 409
+
+
+@pytest.mark.asyncio
 async def test_product_form_rejects_invalid_values_without_persisting(product_lifecycle_env):
     client, _, ng_token, Session = product_lifecycle_env
     product = await _product_by_sku(Session, "NG-LIFE")
@@ -763,6 +842,7 @@ async def test_country_product_page_shows_local_price_status_tabs_and_safe_actio
         assert 'name="price_local"' in active.text
         assert all(f'status={state}' in active.text for state in ("active", "inactive", "archived"))
         assert f'/admin/products/{ids["NGP-1"]}/status' in active.text
+        assert f'/admin/products/{ids["NGP-1"]}/share' in active.text
         assert re.search(r'name="status" value="inactive"[^>]*>\s*Unpublish', active.text)
         assert f'/admin/products/{ids["SHARE-1"]}/localize' in active.text
         assert f'/admin/products/{ids["SHARE-1"]}/remove' in active.text
